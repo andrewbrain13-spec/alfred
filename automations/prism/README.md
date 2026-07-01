@@ -78,16 +78,28 @@ setx PRISM_PASSWORD "..."
    is right.
 4. Only then flip the flag to go live.
 
-## Still to confirm before first run
+## MFA (one-time passcodes)
 
-- **Portal login / MFA** (Path B) — set `PRISM_URL`, `PRISM_USERNAME`,
-  `PRISM_PASSWORD`. If the Lever1 portal login requires 2FA that can't be
-  automated, we'll need an app password or an exempted service login; the task
-  is written to stop and report rather than guess. (If the deep link opens the
-  approval without a fresh login because a browser session persists, even
-  simpler.)
-- **API availability** (optional, Path A) — only if you'd rather not use the
-  browser: ask Lever1 whether they can issue a PrismHR web service user.
+The Lever1 portal uses TOTP one-time passcodes. Rather than granting access to
+your 1Password, enroll a **separate authenticator entry** for this PC and store
+its secret in `PRISM_TOTP_SECRET`; Alfred generates codes on demand via
+`automations/prism/totp.py`. Full steps are in the header of that file. In
+short: when re-adding MFA in Prism, choose "enter code manually" to reveal the
+base32 secret, add it to 1Password AND `setx PRISM_TOTP_SECRET "..."`.
+
+Set these environment variables for the browser path:
+
+```bat
+setx PRISM_URL "https://lvr.prismhr.com/lvr"
+setx PRISM_USERNAME "you@braingroup.com"
+setx PRISM_PASSWORD "..."
+setx PRISM_TOTP_SECRET "JBSWY3DPEHPK3PXP..."
+```
+
+## Optional: API path
+
+Only if you'd rather not use the browser — ask Lever1 whether they can issue a
+PrismHR web service user, then fill in `prism_approve_api.py`.
 
 Resolved from the sample email: sender (`support@lever1.com`), subject pattern,
 body fields, and the direct approval deep link — all wired in.

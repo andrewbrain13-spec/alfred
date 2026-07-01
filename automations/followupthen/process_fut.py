@@ -46,6 +46,19 @@ def _load_reminder() -> dict:
     return json.loads(sys.stdin.read() or "{}")
 
 
+def extract_fut_target(reminder: dict) -> str:
+    """FollowUpThen states whom to follow up with: 'Time to followup with X'.
+
+    Reading it from the reminder is more reliable than inferring from the thread.
+    """
+    text = f"{reminder.get('body_text','')}\n{reminder.get('body_html','')}"
+    m = re.search(
+        r"follow\s*up\s+with\s+([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})",
+        text, re.IGNORECASE,
+    )
+    return m.group(1).lower() if m else ""
+
+
 def _judge_external_reply(transcript: str, internal_domains: list[str]) -> dict:
     """Ask Claude whether there's a meaningful external reply. Returns a dict."""
     prompt = (
@@ -97,6 +110,8 @@ def main() -> int:
     if not subject:
         print("SKIPPED: reminder has no usable subject.")
         return 0
+    fut_target = extract_fut_target(reminder)  # whom FollowUpThen says to nudge
+    print(f"THREAD: {subject!r}  FUT target: {fut_target or '(not stated)'}")
 
     g = GraphClient()
 
@@ -119,8 +134,9 @@ def main() -> int:
         print("SKIPPED: meaningful external reply present; no nudge needed.")
         return 0
 
-    # 3. Compose the draft.
-    waiting_on = verdict.get("waiting_on") or pick_external_party(thread, internal)
+    # 3. Compose the draft. FollowUpThen's stated target wins; then the
+    #    judgment's guess; then the most common external party in the thread.
+    waiting_on = fut_target or verdict.get("waiting_on") or pick_external_party(thread, internal)
     if not waiting_on:
         print("SKIPPED: could not identify an external party to nudge.")
         return 0

@@ -33,10 +33,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from alfred.graph import GraphClient
 
 # A SharePoint/OneDrive share link, as emailed to a distribution list.
-_LINK_RE = re.compile(
-    r"https?://[^\s\"'>]*(?:sharepoint\.com|1drv\.ms|sharepoint|my\.sharepoint)[^\s\"'>]*",
-    re.IGNORECASE,
+_SHARE_RE = r"https?://[^\s\"'<>]*sharepoint[^\s\"'<>]*"
+_LINK_RE = re.compile(_SHARE_RE, re.IGNORECASE)
+# Prefer the URL right after the "NLC Link:" / "RLC Link:" label.
+_LABELED_LINK_RE = re.compile(
+    r"(?:NLC|RLC|New Lease Checklist|Renewal Lease Checklist)\s*Link\s*:.*?(" + _SHARE_RE + ")",
+    re.IGNORECASE | re.DOTALL,
 )
+_TYPES = r"(?:new lease checklist|renewal lease checklist|nlc|rlc)"
 
 
 def _load_email() -> dict:
@@ -47,10 +51,15 @@ def _load_email() -> dict:
 
 
 def _extract_link(email: dict) -> str:
-    for field in ("body_html", "body_text"):
+    for field in ("body_text", "body_html"):
+        text = email.get(field, "") or ""
+        m = _LABELED_LINK_RE.search(text)
+        if m:
+            return m.group(1).rstrip(").,>")
+    for field in ("body_text", "body_html"):
         m = _LINK_RE.search(email.get(field, "") or "")
         if m:
-            return m.group(0).rstrip(").,")
+            return m.group(0).rstrip(").,>")
     return ""
 
 
@@ -64,16 +73,17 @@ def _extract_type(email: dict) -> str:
 
 
 def _extract_tenant(email: dict) -> str:
-    """Best-effort tenant name from the subject.
+    """Tenant name from the subject, handling both orders seen in samples:
 
-    Handles patterns like 'New Lease Checklist - Front Row' or 'RLC: SIRO 2026'.
-    Refine once we have a real Piper subject sample.
+        'NLC - Mission Kitchen & Bath'   (type first)  -> Mission Kitchen & Bath
+        'SIRO - RLC'                     (tenant first) -> SIRO
     """
-    subj = email.get("subject", "") or ""
-    m = re.search(r"(?:checklist|nlc|rlc)\s*[-:]\s*(.+)", subj, re.IGNORECASE)
-    if m:
-        return re.sub(r"\s*\b(20\d{2})\b\s*$", "", m.group(1)).strip()
-    return ""
+    subj = re.sub(r"^\s*(re|fw|fwd)\s*:\s*", "", email.get("subject", "") or "", flags=re.I).strip()
+    m = re.match(rf"^\s*{_TYPES}\s*[-:]\s*(.+)$", subj, re.IGNORECASE)
+    if not m:
+        m = re.match(rf"^(.+?)\s*[-:]\s*{_TYPES}\s*$", subj, re.IGNORECASE)
+    cand = m.group(1) if m else subj
+    return re.sub(r"\s*\b20\d{2}\b\s*$", "", cand).strip()
 
 
 def main() -> int:

@@ -23,9 +23,10 @@ The email JSON is at the path given below. Extract from it:
 ## Steps
 1. Open the approval link from the email with the browser tools.
 2. If prompted to log in, use the `PRISM_URL` login page and the `PRISM_USERNAME`
-   / `PRISM_PASSWORD` environment variables. If an MFA/2FA prompt appears that
-   you cannot satisfy automatically, STOP and report that manual login is
-   required — do not guess.
+   / `PRISM_PASSWORD` environment variables. If a one-time passcode (MFA) prompt
+   appears, get a fresh code by running `python automations/prism/totp.py` and
+   enter its output. Generate the code immediately before entering it (codes
+   expire every 30 seconds). If MFA fails twice, STOP and report — do not guess.
 3. On the approval page, **verify** the employee name and the dates shown match
    what you extracted from the email. This is the safety check.
 4. If — and only if — they match, click **Approve**.

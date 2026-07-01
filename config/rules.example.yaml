@@ -52,7 +52,7 @@ rules:
       - type: claude_agent
         task_file: automations/prism/approve_task.md
         mcp_config: mcp/playwright.json
-        allowed_tools: ["mcp__playwright__browser_navigate", "mcp__playwright__browser_click", "mcp__playwright__browser_type", "mcp__playwright__browser_snapshot", "mcp__playwright__browser_wait_for"]
+        allowed_tools: ["mcp__playwright__browser_navigate", "mcp__playwright__browser_click", "mcp__playwright__browser_type", "mcp__playwright__browser_snapshot", "mcp__playwright__browser_wait_for", "Bash(python automations/prism/totp.py)"]
         dry_run: true
         output_to: prism_approvals.log
 

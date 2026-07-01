@@ -8,3 +8,6 @@ imapclient>=3.0
 # Graph source + automations (Microsoft 365). Required for source type: graph
 # and the Prism/Piper/FollowUpThen automations that use alfred.graph.
 msal>=1.28
+
+# Prism MFA: generate one-time passcodes on demand (automation #1, browser path).
+pyotp>=2.9

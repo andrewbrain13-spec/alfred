@@ -14,6 +14,7 @@ from automations.followupthen.fut_common import (
     pick_external_party,
     weekday_bcc,
 )
+from automations.followupthen.process_fut import extract_fut_target
 
 
 def test_weekday_bcc_examples():
@@ -42,6 +43,13 @@ def test_external_detection():
     assert not is_external_party("me@braingroup.com")
     assert not is_external_party("mondayat6am@followupthen.com")
     assert not is_external_party("noreply@fut.io")
+
+
+def test_extract_fut_target():
+    # Matches the real reminder wording.
+    reminder = {"body_text": "Time to followup with efwalsh@kcsdp.com . This email was sent only to you."}
+    assert extract_fut_target(reminder) == "efwalsh@kcsdp.com"
+    assert extract_fut_target({"body_text": "no target here"}) == ""
 
 
 def test_pick_external_party():
