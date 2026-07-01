@@ -63,7 +63,11 @@ class GraphSource:
             app = msal.PublicClientApplication(
                 self.client_id, authority=authority, token_cache=cache
             )
-            scopes = ["Mail.Read"]
+            # Same scope set as alfred.graph.GraphClient so a single consent /
+            # cached token serves the source and all automations.
+            from ..graph import DELEGATED_SCOPES
+
+            scopes = [s for s in DELEGATED_SCOPES if s != "offline_access"]
             accounts = app.get_accounts()
             result = None
             if accounts:

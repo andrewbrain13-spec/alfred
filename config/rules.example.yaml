@@ -56,37 +56,55 @@ rules:
         dry_run: true
         output_to: prism_approvals.log
 
-  - name: "Save invoices from a vendor"
+  # --- Automation #2: Piper NLC/RLC checklist -> OneDrive tracker (dry-run) --
+  # See automations/piper/README.md. Appends a row to Table1 in
+  # "NLC tracking.xlsx" with the shared link in the Link column.
+  # TODO: add the real Piper sender to `from` once you share a sample email.
+  - name: "Piper checklist -> tracker (dry-run)"
     match:
-      subject: "invoice"
-      from: "@somevendor\\.com"
-      has_attachment: true
+      subject: "(?i)new lease checklist|renewal lease checklist|\\bNLC\\b|\\bRLC\\b"
+    stop_on_match: true
     workflows:
-      - type: save_attachments
-        dir: "C:/Alfred/invoices/{from}"
-        pattern: "\\.pdf$"
       - type: run_command
-        command: ["python", "C:/scripts/process_invoice.py"]
-        pass_body_stdin: true
+        command: ["python", "automations/piper/append_row.py"]
+        env:
+          ALFRED_DRY_RUN: "1"                # "0" to actually write the row
+          PIPER_TRACKING_PATH: "NLC tracking.xlsx"
+          PIPER_TABLE: "Table1"
 
-  - name: "Urgent from the boss -> Teams ping"
+  # --- Automation #3: FollowUpThen reminder -> draft nudge (drafts only) -----
+  # See automations/followupthen/README.md. Finds the thread, checks for a
+  # meaningful external reply, and if none, drafts "Any update on this?" with a
+  # BCC to the weekday FollowUpThen address. It only ever DRAFTS; you send.
+  - name: "FollowUpThen reminder -> draft nudge"
     match:
-      from: "boss@braingroup\\.com"
-      subject: "(?i)\\burgent\\b"
+      from: "followupthen\\.com|fut\\.io"
+    stop_on_match: true
     workflows:
-      - type: call_webhook
-        url: ${TEAMS_WEBHOOK_URL}
-        json:
-          text: "🚨 Urgent from {from}: {subject}"
+      - type: run_command
+        command: ["python", "automations/followupthen/process_fut.py"]
+        env:
+          ALFRED_DRY_RUN: "1"                # "0" to create the draft in Outlook
+          FUT_INTERNAL_DOMAINS: "braingroup.com"
+          FUT_NUDGE_BODY: "Any update on this?"
 
-  - name: "Auto-acknowledge support requests"
-    match:
-      to: "support@braingroup\\.com"
-    stop_on_match: true            # don't let later rules also fire
-    workflows:
-      - type: send_reply
-        subject: "Re: {subject}"
-        body: |
-          Thanks — we received your message and will respond shortly.
-        smtp_user: abrain@braingroup.com
-        smtp_password: ${ALFRED_EMAIL_PASSWORD}
+  # --- More example patterns (uncomment/adapt as needed) --------------------
+  # - name: "Save invoices from a vendor"
+  #   match:
+  #     subject: "invoice"
+  #     from: "@somevendor\\.com"
+  #     has_attachment: true
+  #   workflows:
+  #     - type: save_attachments
+  #       dir: "C:/Alfred/invoices/{from}"
+  #       pattern: "\\.pdf$"
+  #
+  # - name: "Urgent from the boss -> Teams ping"
+  #   match:
+  #     from: "boss@braingroup\\.com"
+  #     subject: "(?i)\\burgent\\b"
+  #   workflows:
+  #     - type: call_webhook
+  #       url: ${TEAMS_WEBHOOK_URL}
+  #       json:
+  #         text: "Urgent from {from}: {subject}"

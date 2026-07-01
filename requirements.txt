@@ -5,5 +5,6 @@ requests>=2.31
 # IMAP source (default). Remove if you only use the Graph source.
 imapclient>=3.0
 
-# Graph source (Microsoft 365, recommended). Uncomment if you use source type: graph
-# msal>=1.28
+# Graph source + automations (Microsoft 365). Required for source type: graph
+# and the Prism/Piper/FollowUpThen automations that use alfred.graph.
+msal>=1.28

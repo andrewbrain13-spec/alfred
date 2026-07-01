@@ -22,12 +22,15 @@ is cached locally.
    applications**, and enable **Allow public client flows** (set the toggle to
    "Yes" under Advanced settings).
 2. **API permissions** → **Add a permission** → **Microsoft Graph** →
-   **Delegated permissions**. Add the scopes for the automations you'll run:
-   - **Mail.Read** — required (watch the inbox). *All automations.*
-   - **Mail.Send** — send follow-up / reply emails. *FollowUpThen automation #3.*
-   - **Files.ReadWrite** — append to your OneDrive tracking list. *Piper
+   **Delegated permissions**. Add:
+   - **Mail.ReadWrite** — watch the inbox AND create draft replies. Note this
+     does *not* allow sending — the FollowUpThen automation only drafts; you
+     click Send. *All mail automations.*
+   - **Files.ReadWrite** — append to your OneDrive tracking workbook. *Piper
      automation #2.*
-   Grant admin consent if your tenant requires it.
+   - **offline_access** — so the refresh token persists (sign in once).
+   Grant admin consent if your tenant requires it. (These match
+   `DELEGATED_SCOPES` in `alfred/graph.py`.)
 3. Config:
 
    ```yaml
