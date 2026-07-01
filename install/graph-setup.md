@@ -22,8 +22,12 @@ is cached locally.
    applications**, and enable **Allow public client flows** (set the toggle to
    "Yes" under Advanced settings).
 2. **API permissions** → **Add a permission** → **Microsoft Graph** →
-   **Delegated permissions** → add **Mail.Read** (and **Mail.Send** if you use
-   the reply workflow via Graph later). Grant admin consent if required.
+   **Delegated permissions**. Add the scopes for the automations you'll run:
+   - **Mail.Read** — required (watch the inbox). *All automations.*
+   - **Mail.Send** — send follow-up / reply emails. *FollowUpThen automation #3.*
+   - **Files.ReadWrite** — append to your OneDrive tracking list. *Piper
+     automation #2.*
+   Grant admin consent if your tenant requires it.
 3. Config:
 
    ```yaml

@@ -8,25 +8,25 @@
 # Which mailbox to watch.
 # ---------------------------------------------------------------------------
 source:
-  # Fastest to set up if your M365 tenant still allows IMAP + app passwords.
-  type: imap
+  # Microsoft Graph (recommended). One-time Entra app registration; then
+  # authenticate once and the refresh token is cached. See install/graph-setup.md.
+  type: graph
   name: outlook
-  host: outlook.office365.com
-  port: 993
-  username: abrain@braingroup.com
-  auth: password
-  password: ${ALFRED_EMAIL_PASSWORD}   # an M365 *app password*, set as an env var
-  folder: INBOX
-  window: 25                            # messages inspected per poll (dedup handles overlap)
+  tenant_id: ${ALFRED_TENANT_ID}
+  client_id: ${ALFRED_CLIENT_ID}
+  auth: device_code             # delegated; for your own mailbox
+  folder: inbox
 
-  # --- Microsoft Graph alternative (recommended, no IMAP dependency) ---------
-  # Comment out the block above and use this instead. See install/graph-setup.md.
-  # type: graph
+  # --- IMAP alternative (only if your tenant still allows IMAP basic auth) ----
+  # type: imap
   # name: outlook
-  # tenant_id: ${ALFRED_TENANT_ID}
-  # client_id: ${ALFRED_CLIENT_ID}
-  # auth: device_code            # authenticate once; refresh token is cached
-  # folder: inbox
+  # host: outlook.office365.com
+  # port: 993
+  # username: abrain@braingroup.com
+  # auth: password
+  # password: ${ALFRED_EMAIL_PASSWORD}   # an M365 *app password*
+  # folder: INBOX
+  # window: 25
 
 poll_seconds: 60                 # how often to check for new mail
 state_file: alfred_state.json    # remembers processed messages across restarts
@@ -38,6 +38,23 @@ log_file: alfred.log
 # a plain word acts as a substring match.
 # ---------------------------------------------------------------------------
 rules:
+  # --- Automation #1: auto-approve Prism time-off requests (dry-run) ---------
+  # See automations/prism/README.md. Starts in dry-run: it reports what it
+  # WOULD approve without approving. Tighten `match` once you have a real
+  # Prism notification sample, then set dry_run: false to go live.
+  - name: "Prism PTO -> approve (browser, dry-run)"
+    match:
+      from: "(?i)prism"
+      subject: "(?i)time off|pto|leave request"
+    stop_on_match: true
+    workflows:
+      - type: claude_agent
+        task_file: automations/prism/approve_task.md
+        mcp_config: mcp/playwright.json
+        allowed_tools: ["mcp__playwright__browser_navigate", "mcp__playwright__browser_click", "mcp__playwright__browser_type", "mcp__playwright__browser_snapshot"]
+        dry_run: true
+        output_to: prism_approvals.log
+
   - name: "Save invoices from a vendor"
     match:
       subject: "invoice"

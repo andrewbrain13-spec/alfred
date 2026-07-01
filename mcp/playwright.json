@@ -1,0 +1,9 @@
+{
+  "//": "MCP config passed to Claude Code (--mcp-config) so the agent can drive a browser. Requires Node.js on the work PC. On first use it fetches the Playwright MCP server via npx.",
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    }
+  }
+}

@@ -10,6 +10,7 @@ from typing import Any
 
 from .base import Workflow
 from .call_webhook import CallWebhook
+from .claude_agent import ClaudeAgent
 from .run_command import RunCommand
 from .save_attachments import SaveAttachments
 from .send_reply import SendReply
@@ -19,6 +20,7 @@ REGISTRY: dict[str, type[Workflow]] = {
     "call_webhook": CallWebhook,
     "send_reply": SendReply,
     "save_attachments": SaveAttachments,
+    "claude_agent": ClaudeAgent,
 }
 
 
