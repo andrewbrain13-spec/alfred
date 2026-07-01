@@ -1,10 +1,20 @@
-# Automation #1 — Auto-approve Prism time-off requests
+# Automation #1 — Auto-approve Lever1/Prism leave requests
 
-**Trigger:** a Prism (PrismHR) notification email saying an employee requested
-time off.
+**Trigger:** a leave-approval email from your PEO, Lever1 (PrismHR).
 **Action:** approve that request (unlimited-PTO policy → tracking only).
 
-Two implementations are provided; pick one in `config/rules.yaml`.
+## Confirmed notification format (from a real sample)
+- **Sender:** `support@lever1.com`
+- **Subject:** `Leave approval needed for <Employee Name> (Brain Group)`
+- **Body:** names the employee, each `MM/DD/YYYY (N.NN Hours)` entry, the plan
+  (`UNLMTD`), and a **direct approval deep link**:
+  `https://lvr.prismhr.com/lvr?a=ap&c=<id>&bkey=<token>`
+
+The deep link (`a=ap` = approve action) points straight at this one request,
+so the browser path opens it directly rather than searching a queue.
+
+Two implementations are provided; pick one in `config/rules.yaml`. The browser
+path (B) is recommended here since we have a working deep link.
 
 ## Path A — API (preferred, deterministic)
 
@@ -17,8 +27,8 @@ Rule:
 ```yaml
 - name: "Prism PTO -> approve (API)"
   match:
-    from: "@.*prismhr\\.com|prism"      # tighten to the real notification sender
-    subject: "(?i)time off|pto|leave request"
+    from: "support@lever1\\.com"
+    subject: "(?i)leave approval needed"
   workflows:
     - type: run_command
       command: ["python", "automations/prism/prism_approve_api.py"]
@@ -39,8 +49,8 @@ Rule:
 ```yaml
 - name: "Prism PTO -> approve (browser)"
   match:
-    from: "@.*prismhr\\.com|prism"
-    subject: "(?i)time off|pto|leave request"
+    from: "support@lever1\\.com"
+    subject: "(?i)leave approval needed"
   workflows:
     - type: claude_agent
       task_file: automations/prism/approve_task.md
@@ -68,12 +78,16 @@ setx PRISM_PASSWORD "..."
    is right.
 4. Only then flip the flag to go live.
 
-## Known unknowns to confirm before first run
+## Still to confirm before first run
 
-- **Sender/subject of the real Prism notification** — the `match` above is a
-  guess; tighten it once you have a sample email.
-- **API availability** — confirm with your PrismHR provider whether a web
-  service user can be issued (Path A) or whether we use Path B.
-- **MFA on the portal** (Path B) — if login requires 2FA that can't be
-  automated, the browser path needs an app password or an exempted service
-  account; the task is written to stop and report rather than guess.
+- **Portal login / MFA** (Path B) — set `PRISM_URL`, `PRISM_USERNAME`,
+  `PRISM_PASSWORD`. If the Lever1 portal login requires 2FA that can't be
+  automated, we'll need an app password or an exempted service login; the task
+  is written to stop and report rather than guess. (If the deep link opens the
+  approval without a fresh login because a browser session persists, even
+  simpler.)
+- **API availability** (optional, Path A) — only if you'd rather not use the
+  browser: ask Lever1 whether they can issue a PrismHR web service user.
+
+Resolved from the sample email: sender (`support@lever1.com`), subject pattern,
+body fields, and the direct approval deep link — all wired in.

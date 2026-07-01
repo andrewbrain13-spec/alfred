@@ -38,20 +38,21 @@ log_file: alfred.log
 # a plain word acts as a substring match.
 # ---------------------------------------------------------------------------
 rules:
-  # --- Automation #1: auto-approve Prism time-off requests (dry-run) ---------
-  # See automations/prism/README.md. Starts in dry-run: it reports what it
-  # WOULD approve without approving. Tighten `match` once you have a real
-  # Prism notification sample, then set dry_run: false to go live.
-  - name: "Prism PTO -> approve (browser, dry-run)"
+  # --- Automation #1: auto-approve Lever1/Prism leave requests (dry-run) -----
+  # See automations/prism/README.md. Matched to the real Lever1 notification
+  # (support@lever1.com, "Leave approval needed for ... (Brain Group)").
+  # Starts in dry-run: reports what it WOULD approve. Set dry_run: false to go
+  # live once you've confirmed a dry-run pass in prism_approvals.log.
+  - name: "Prism/Lever1 leave -> approve (browser, dry-run)"
     match:
-      from: "(?i)prism"
-      subject: "(?i)time off|pto|leave request"
+      from: "support@lever1\\.com"
+      subject: "(?i)leave approval needed"
     stop_on_match: true
     workflows:
       - type: claude_agent
         task_file: automations/prism/approve_task.md
         mcp_config: mcp/playwright.json
-        allowed_tools: ["mcp__playwright__browser_navigate", "mcp__playwright__browser_click", "mcp__playwright__browser_type", "mcp__playwright__browser_snapshot"]
+        allowed_tools: ["mcp__playwright__browser_navigate", "mcp__playwright__browser_click", "mcp__playwright__browser_type", "mcp__playwright__browser_snapshot", "mcp__playwright__browser_wait_for"]
         dry_run: true
         output_to: prism_approvals.log
 
