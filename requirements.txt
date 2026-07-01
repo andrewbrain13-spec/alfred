@@ -1,0 +1,9 @@
+# Core dependencies
+PyYAML>=6.0
+requests>=2.31
+
+# IMAP source (default). Remove if you only use the Graph source.
+imapclient>=3.0
+
+# Graph source (Microsoft 365, recommended). Uncomment if you use source type: graph
+# msal>=1.28

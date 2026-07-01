@@ -1,0 +1,74 @@
+# Alfred configuration — copy to config/rules.yaml and edit.
+#
+# Secrets: never put passwords here. Use ${ENV_VAR} and set the variable in the
+# environment (see install/install-windows.md). Anything ${LIKE_THIS} is
+# replaced from the environment when Alfred starts.
+
+# ---------------------------------------------------------------------------
+# Which mailbox to watch.
+# ---------------------------------------------------------------------------
+source:
+  # Fastest to set up if your M365 tenant still allows IMAP + app passwords.
+  type: imap
+  name: outlook
+  host: outlook.office365.com
+  port: 993
+  username: abrain@braingroup.com
+  auth: password
+  password: ${ALFRED_EMAIL_PASSWORD}   # an M365 *app password*, set as an env var
+  folder: INBOX
+  window: 25                            # messages inspected per poll (dedup handles overlap)
+
+  # --- Microsoft Graph alternative (recommended, no IMAP dependency) ---------
+  # Comment out the block above and use this instead. See install/graph-setup.md.
+  # type: graph
+  # name: outlook
+  # tenant_id: ${ALFRED_TENANT_ID}
+  # client_id: ${ALFRED_CLIENT_ID}
+  # auth: device_code            # authenticate once; refresh token is cached
+  # folder: inbox
+
+poll_seconds: 60                 # how often to check for new mail
+state_file: alfred_state.json    # remembers processed messages across restarts
+log_file: alfred.log
+
+# ---------------------------------------------------------------------------
+# Rules: each is a trigger (match) -> one or more workflows.
+# Conditions in `match` are ANDed. Text conditions are case-insensitive regex;
+# a plain word acts as a substring match.
+# ---------------------------------------------------------------------------
+rules:
+  - name: "Save invoices from a vendor"
+    match:
+      subject: "invoice"
+      from: "@somevendor\\.com"
+      has_attachment: true
+    workflows:
+      - type: save_attachments
+        dir: "C:/Alfred/invoices/{from}"
+        pattern: "\\.pdf$"
+      - type: run_command
+        command: ["python", "C:/scripts/process_invoice.py"]
+        pass_body_stdin: true
+
+  - name: "Urgent from the boss -> Teams ping"
+    match:
+      from: "boss@braingroup\\.com"
+      subject: "(?i)\\burgent\\b"
+    workflows:
+      - type: call_webhook
+        url: ${TEAMS_WEBHOOK_URL}
+        json:
+          text: "🚨 Urgent from {from}: {subject}"
+
+  - name: "Auto-acknowledge support requests"
+    match:
+      to: "support@braingroup\\.com"
+    stop_on_match: true            # don't let later rules also fire
+    workflows:
+      - type: send_reply
+        subject: "Re: {subject}"
+        body: |
+          Thanks — we received your message and will respond shortly.
+        smtp_user: abrain@braingroup.com
+        smtp_password: ${ALFRED_EMAIL_PASSWORD}

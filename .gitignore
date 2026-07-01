@@ -1,0 +1,16 @@
+# Local config with real values (keep only rules.example.yaml in git)
+config/rules.yaml
+
+# Runtime state & logs
+*.log
+alfred_state.json
+graph_token_cache.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
