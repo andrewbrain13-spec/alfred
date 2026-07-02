@@ -77,32 +77,39 @@ def _graph_id(email: dict) -> str:
     return uid.split(":", 1)[1] if ":" in uid else ""
 
 
-def _norm(s: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "", (s or "").lower().replace("&", "and"))
+def _words(s: str) -> list[str]:
+    return re.sub(r"[^a-z0-9]+", " ", (s or "").lower().replace("&", " and ")).split()
 
 
-def _match_folder(tenant: str, folders: list[dict], overrides: dict | None = None) -> dict | None:
-    """Match the tenant to a property subfolder. Conservative: returns a folder
-    only on a confident match, else None (caller leaves the mail in place)."""
+def _match_building_folder(email: dict, folders: list[dict], overrides: dict | None = None) -> dict | None:
+    """Pick the portfolio subfolder for the BUILDING the email names.
+
+    The building appears in the email text (e.g. 'New Tenant at Foxridge!'), and
+    the portfolio subfolders are named by building. We match a folder when its
+    name appears as a whole token-phrase in the subject/body. Conservative:
+    returns a folder only on a single confident match, else None.
+    """
     overrides = overrides or {}
+    tenant = _extract_tenant(email)
+    # Explicit override: tenant -> building folder name (for emails that don't
+    # state the building, e.g. some renewals).
     for k, v in overrides.items():
         if k.strip().lower() == tenant.strip().lower():
             for f in folders:
                 if (f.get("displayName") or "").strip().lower() == v.strip().lower():
                     return f
-    t = _norm(tenant)
-    if not t:
-        return None
-    exact = [f for f in folders if _norm(f.get("displayName", "")) == t]
-    if len(exact) == 1:
-        return exact[0]
-    subs = [
-        f for f in folders
-        if _norm(f.get("displayName", "")) and (_norm(f["displayName"]) in t or t in _norm(f["displayName"]))
-    ]
-    if len(subs) == 1:
-        return subs[0]
-    return None
+
+    text = f"{email.get('subject', '')} \n {email.get('body_text', '')}"
+    joined = " " + " ".join(_words(text)) + " "
+    matches = []
+    for f in folders:
+        name_words = _words(f.get("displayName", ""))
+        if not name_words:
+            continue
+        phrase = " " + " ".join(name_words) + " "
+        if phrase in joined:
+            matches.append(f)
+    return matches[0] if len(matches) == 1 else None
 
 
 def _load_overrides() -> dict:
@@ -116,8 +123,8 @@ def _load_overrides() -> dict:
     return {}
 
 
-def _file_and_move(g, email: dict, tenant: str, portfolio_name: str) -> None:
-    """Mark the message read and move it to Inbox/<portfolio>/<property>."""
+def _file_and_move(g, email: dict, portfolio_name: str) -> None:
+    """Mark the message read and move it to Inbox/<portfolio>/<building>."""
     msg_id = _graph_id(email)
     if not msg_id:
         print("NOTE: no message id available; skipped read/move.")
@@ -128,14 +135,15 @@ def _file_and_move(g, email: dict, tenant: str, portfolio_name: str) -> None:
         print(f"NOTE: no '{portfolio_name}' subfolder under Inbox; marked read, left in inbox.")
         return
     folders = g.child_folders(portfolio["id"])
-    dest = _match_folder(tenant, folders, _load_overrides())
+    dest = _match_building_folder(email, folders, _load_overrides())
     if dest:
         g.move_message(msg_id, dest["id"])
         print(f"MOVED to Inbox/{portfolio_name}/{dest['displayName']} and marked read.")
     else:
         names = ", ".join(sorted(f.get("displayName", "") for f in folders))
-        print(f"MARKED READ but no confident property-folder match for {tenant!r}. "
-              f"Add an override in folder_map.json. Folders under {portfolio_name}: {names}")
+        print(f"MARKED READ but no confident building-folder match. Add a "
+              f"tenant->building override in folder_map.json. "
+              f"Folders under {portfolio_name}: {names}")
 
 
 def _extract_tenant(email: dict) -> str:
@@ -171,7 +179,7 @@ def main() -> int:
     if dry_run:
         print(f"DRY-RUN: would append row to {item_path}!{table}: "
               f"Tenant={tenant!r} date={date.today()} type={typ!r} Link={link}; "
-              f"then mark read and move to Inbox/{portfolio_name}/<match for {tenant!r}>.")
+              f"then mark read and move to the building's folder under Inbox/{portfolio_name}.")
         return 0
 
     g = GraphClient()
@@ -179,7 +187,7 @@ def main() -> int:
     print(f"ROW ADDED to {item_path}!{table}: {tenant!r} ({typ}) -> {link}")
 
     try:
-        _file_and_move(g, email, tenant, portfolio_name)
+        _file_and_move(g, email, portfolio_name)
     except Exception as exc:
         # Filing is best-effort; never fail the whole run over it.
         print(f"WARN: mark-read/move step failed: {exc}")

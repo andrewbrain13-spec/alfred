@@ -11,7 +11,7 @@ from automations.piper.append_row import (
     _extract_link,
     _extract_tenant,
     _extract_type,
-    _match_folder,
+    _match_building_folder,
 )
 
 SIRO = {
@@ -50,19 +50,21 @@ def test_link_picks_sharepoint_not_signature():
     assert "braingroup.com" not in _extract_link(SIRO)  # signature link excluded
 
 
-def test_match_folder():
+def test_match_building_folder():
     folders = [
-        {"id": "1", "displayName": "SIRO"},
-        {"id": "2", "displayName": "Mission Kitchen and Bath"},
-        {"id": "3", "displayName": "Front Row"},
+        {"id": "1", "displayName": "Foxridge"},
+        {"id": "2", "displayName": "Park 39"},
+        {"id": "3", "displayName": "39th Street"},
     ]
-    # '&' vs 'and' normalizes to the same
-    assert _match_folder("Mission Kitchen & Bath", folders)["id"] == "2"
-    assert _match_folder("SIRO", folders)["id"] == "1"
-    # No confident match -> None (won't move to a wrong folder)
-    assert _match_folder("Totally New Tenant", folders) is None
-    # Explicit override wins
-    assert _match_folder("Mission K&B", folders, {"Mission K&B": "Mission Kitchen and Bath"})["id"] == "2"
+    # Building named in the body ("New Tenant at Foxridge!")
+    assert _match_building_folder(MISSION, folders)["id"] == "1"
+    # Multi-word building matched as a token phrase
+    park = {"subject": "NLC - Foo", "body_text": "New tenant at Park 39 building"}
+    assert _match_building_folder(park, folders)["id"] == "2"
+    # No building named -> None (won't guess)
+    assert _match_building_folder(SIRO, folders) is None
+    # Override maps tenant -> building folder when the email doesn't state it
+    assert _match_building_folder(SIRO, folders, {"SIRO": "39th Street"})["id"] == "3"
 
 
 if __name__ == "__main__":
