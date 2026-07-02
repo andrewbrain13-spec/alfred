@@ -72,6 +72,72 @@ def _extract_type(email: dict) -> str:
     return ""
 
 
+def _graph_id(email: dict) -> str:
+    uid = email.get("uid", "") or ""
+    return uid.split(":", 1)[1] if ":" in uid else ""
+
+
+def _norm(s: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", (s or "").lower().replace("&", "and"))
+
+
+def _match_folder(tenant: str, folders: list[dict], overrides: dict | None = None) -> dict | None:
+    """Match the tenant to a property subfolder. Conservative: returns a folder
+    only on a confident match, else None (caller leaves the mail in place)."""
+    overrides = overrides or {}
+    for k, v in overrides.items():
+        if k.strip().lower() == tenant.strip().lower():
+            for f in folders:
+                if (f.get("displayName") or "").strip().lower() == v.strip().lower():
+                    return f
+    t = _norm(tenant)
+    if not t:
+        return None
+    exact = [f for f in folders if _norm(f.get("displayName", "")) == t]
+    if len(exact) == 1:
+        return exact[0]
+    subs = [
+        f for f in folders
+        if _norm(f.get("displayName", "")) and (_norm(f["displayName"]) in t or t in _norm(f["displayName"]))
+    ]
+    if len(subs) == 1:
+        return subs[0]
+    return None
+
+
+def _load_overrides() -> dict:
+    """Optional automations/piper/folder_map.json: {"Tenant name": "Folder name"}."""
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "folder_map.json")
+    if os.path.exists(p):
+        try:
+            return json.load(open(p, encoding="utf-8"))
+        except Exception:
+            return {}
+    return {}
+
+
+def _file_and_move(g, email: dict, tenant: str, portfolio_name: str) -> None:
+    """Mark the message read and move it to Inbox/<portfolio>/<property>."""
+    msg_id = _graph_id(email)
+    if not msg_id:
+        print("NOTE: no message id available; skipped read/move.")
+        return
+    g.mark_read(msg_id)
+    portfolio = g.find_child_folder("inbox", portfolio_name)
+    if not portfolio:
+        print(f"NOTE: no '{portfolio_name}' subfolder under Inbox; marked read, left in inbox.")
+        return
+    folders = g.child_folders(portfolio["id"])
+    dest = _match_folder(tenant, folders, _load_overrides())
+    if dest:
+        g.move_message(msg_id, dest["id"])
+        print(f"MOVED to Inbox/{portfolio_name}/{dest['displayName']} and marked read.")
+    else:
+        names = ", ".join(sorted(f.get("displayName", "") for f in folders))
+        print(f"MARKED READ but no confident property-folder match for {tenant!r}. "
+              f"Add an override in folder_map.json. Folders under {portfolio_name}: {names}")
+
+
 def _extract_tenant(email: dict) -> str:
     """Tenant name from the subject, handling both orders seen in samples:
 
@@ -90,6 +156,7 @@ def main() -> int:
     dry_run = os.environ.get("ALFRED_DRY_RUN", "1") == "1"
     item_path = os.environ.get("PIPER_TRACKING_PATH", "NLC tracking.xlsx")
     table = os.environ.get("PIPER_TABLE", "Table1")
+    portfolio_name = os.environ.get("PIPER_PORTFOLIO_FOLDER", "portfolio")
 
     email = _load_email()
     link = _extract_link(email)
@@ -103,11 +170,19 @@ def main() -> int:
 
     if dry_run:
         print(f"DRY-RUN: would append row to {item_path}!{table}: "
-              f"Tenant={tenant!r} date={date.today()} type={typ!r} Link={link}")
+              f"Tenant={tenant!r} date={date.today()} type={typ!r} Link={link}; "
+              f"then mark read and move to Inbox/{portfolio_name}/<match for {tenant!r}>.")
         return 0
 
-    GraphClient().add_table_row(item_path, table, row)
+    g = GraphClient()
+    g.add_table_row(item_path, table, row)
     print(f"ROW ADDED to {item_path}!{table}: {tenant!r} ({typ}) -> {link}")
+
+    try:
+        _file_and_move(g, email, tenant, portfolio_name)
+    except Exception as exc:
+        # Filing is best-effort; never fail the whole run over it.
+        print(f"WARN: mark-read/move step failed: {exc}")
     return 0
 
 

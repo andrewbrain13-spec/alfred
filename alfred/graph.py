@@ -98,6 +98,32 @@ class GraphClient:
     def update_message(self, message_id: str, patch: dict[str, Any]) -> dict:
         return self.request("PATCH", f"/me/messages/{message_id}", json=patch).json()
 
+    def mark_read(self, message_id: str) -> dict:
+        return self.update_message(message_id, {"isRead": True})
+
+    def move_message(self, message_id: str, destination_id: str) -> dict:
+        return self.request(
+            "POST", f"/me/messages/{message_id}/move",
+            json={"destinationId": destination_id},
+        ).json()
+
+    # -- folders ------------------------------------------------------------
+    def child_folders(self, parent_id: str) -> list[dict]:
+        """All child folders of a folder (well-known name like 'inbox' or an id)."""
+        url = f"/me/mailFolders/{parent_id}/childFolders?$top=100&$select=id,displayName"
+        out: list[dict] = []
+        while url:
+            data = self.request("GET", url).json()
+            out += data.get("value", [])
+            url = data.get("@odata.nextLink")
+        return out
+
+    def find_child_folder(self, parent_id: str, name: str) -> dict | None:
+        for f in self.child_folders(parent_id):
+            if (f.get("displayName") or "").strip().lower() == name.strip().lower():
+                return f
+        return None
+
     # -- excel --------------------------------------------------------------
     def add_table_row(self, item_path: str, table: str, values: list[Any]) -> dict:
         """Append one row to a workbook table by drive-relative item path."""

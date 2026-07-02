@@ -7,7 +7,12 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from automations.piper.append_row import _extract_link, _extract_tenant, _extract_type
+from automations.piper.append_row import (
+    _extract_link,
+    _extract_tenant,
+    _extract_type,
+    _match_folder,
+)
 
 SIRO = {
     "subject": "SIRO - RLC",
@@ -43,6 +48,21 @@ def test_link_picks_sharepoint_not_signature():
     assert _extract_link(SIRO).endswith("?e=ga3raa")
     assert "sharepoint.com" in _extract_link(MISSION)
     assert "braingroup.com" not in _extract_link(SIRO)  # signature link excluded
+
+
+def test_match_folder():
+    folders = [
+        {"id": "1", "displayName": "SIRO"},
+        {"id": "2", "displayName": "Mission Kitchen and Bath"},
+        {"id": "3", "displayName": "Front Row"},
+    ]
+    # '&' vs 'and' normalizes to the same
+    assert _match_folder("Mission Kitchen & Bath", folders)["id"] == "2"
+    assert _match_folder("SIRO", folders)["id"] == "1"
+    # No confident match -> None (won't move to a wrong folder)
+    assert _match_folder("Totally New Tenant", folders) is None
+    # Explicit override wins
+    assert _match_folder("Mission K&B", folders, {"Mission K&B": "Mission Kitchen and Bath"})["id"] == "2"
 
 
 if __name__ == "__main__":
