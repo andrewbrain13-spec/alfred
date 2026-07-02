@@ -75,3 +75,16 @@ class Engine:
         n = self._process_once()
         self.source.close()
         return n
+
+    def baseline(self) -> int:
+        """Mark all currently-present messages as processed WITHOUT running any
+        workflow. Run this once on first setup so Alfred only reacts to mail that
+        arrives afterward, never to your existing inbox."""
+        n = 0
+        for message in self.source.fetch_new():
+            if not self.state.is_processed(self.source.name, message.uid):
+                self.state.mark_processed(self.source.name, message.uid)
+                n += 1
+        self.state.save()
+        self.source.close()
+        return n

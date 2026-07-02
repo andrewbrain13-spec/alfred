@@ -33,6 +33,8 @@ def main() -> int:
     parser.add_argument("--config", "-c", default="config/rules.yaml", help="Path to the YAML config")
     parser.add_argument("--once", action="store_true", help="Run a single poll cycle and exit")
     parser.add_argument("--check", action="store_true", help="Validate config and exit")
+    parser.add_argument("--baseline", action="store_true",
+                        help="Mark current inbox as seen without running workflows (first-time setup)")
     args = parser.parse_args()
 
     try:
@@ -50,7 +52,11 @@ def main() -> int:
         return 0
 
     engine = Engine(config)
-    if args.once:
+    if args.baseline:
+        n = engine.baseline()
+        print(f"Baselined {n} existing message(s) as already-seen. "
+              f"Alfred will now only react to mail that arrives from here on.")
+    elif args.once:
         engine.run_once()
     else:
         engine.run_forever()
