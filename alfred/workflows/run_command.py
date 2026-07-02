@@ -60,6 +60,7 @@ class RunCommand(Workflow):
         )
         if result.returncode != 0:
             raise RuntimeError(
-                f"Command exited {result.returncode}: {result.stderr.strip()[:500]}"
+                f"Command exited {result.returncode}: {result.stderr.strip()[:1000]}"
             )
-        log.info("Command ok (%s): %s", message.uid, result.stdout.strip()[:200])
+        out = result.stdout.strip()
+        log.info("Command ok (%s):\n%s", message.uid, out if out else "(no output)")
