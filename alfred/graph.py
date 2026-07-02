@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 from datetime import date, datetime
 from typing import Any
+from urllib.parse import quote
 
 import requests
 
@@ -103,7 +104,7 @@ class GraphClient:
         norm = [_excel_cell(v) for v in values]
         return self.request(
             "POST",
-            f"/me/drive/root:/{item_path}:/workbook/tables/{table}/rows",
+            f"/me/drive/root:/{quote(item_path, safe='/')}:/workbook/tables/{table}/rows",
             json={"index": None, "values": [norm]},
         ).json()
 
