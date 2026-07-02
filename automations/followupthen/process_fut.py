@@ -88,6 +88,16 @@ def _judge_external_reply(transcript: str, internal_domains: list[str]) -> dict:
     return json.loads(m.group(0))
 
 
+def _has_participant(message: dict, addr: str) -> bool:
+    """True if `addr` is the sender or a recipient of the message."""
+    if not addr:
+        return False
+    people = [message.get("from", {}).get("emailAddress", {}).get("address", "")]
+    for r in message.get("toRecipients", []) + message.get("ccRecipients", []):
+        people.append(r.get("emailAddress", {}).get("address", ""))
+    return any(addr.lower() == p.lower() for p in people if p)
+
+
 def _transcript(messages: list[dict]) -> str:
     lines = []
     for m in messages:
@@ -115,7 +125,8 @@ def main() -> int:
 
     g = GraphClient()
 
-    # 1. Find the original thread by subject (excluding FollowUpThen's own mail).
+    # 1. Find the original thread by subject (excluding FollowUpThen's own mail
+    #    and our own drafts). Prefer a thread the follow-up target is part of.
     candidates = [
         m for m in g.search_messages(f"subject:{subject}", top=25)
         if not m.get("isDraft") and not is_fut(m.get("from", {}).get("emailAddress", {}).get("address", ""))
@@ -124,8 +135,20 @@ def main() -> int:
         print(f"SKIPPED: no Outlook thread found for subject {subject!r}.")
         return 0
     candidates.sort(key=lambda m: m.get("receivedDateTime", ""), reverse=True)
-    conversation_id = candidates[0]["conversationId"]
-    thread = g.get_conversation(conversation_id) or candidates
+    with_target = [m for m in candidates if fut_target and _has_participant(m, fut_target)]
+    chosen = (with_target or candidates)[0]
+    conversation_id = chosen.get("conversationId")
+
+    try:
+        thread = g.get_conversation(conversation_id) if conversation_id else []
+    except Exception as exc:
+        print(f"NOTE: thread lookup failed ({exc}); using subject-match results.")
+        thread = []
+    # Keep only real messages (no drafts, no FollowUpThen), oldest->newest.
+    thread = [
+        m for m in (thread or candidates)
+        if not m.get("isDraft") and not is_fut(m.get("from", {}).get("emailAddress", {}).get("address", ""))
+    ] or candidates
 
     # 2. Judge.
     verdict = _judge_external_reply(_transcript(thread), internal)
@@ -141,7 +164,7 @@ def main() -> int:
         print("SKIPPED: could not identify an external party to nudge.")
         return 0
     bcc = weekday_bcc(datetime.now())
-    reply_to_id = thread[-1]["id"]  # latest message in the thread
+    reply_to_id = thread[-1]["id"]  # latest real message in the original thread
 
     if dry_run:
         print(f"DRY-RUN: would draft reply to {waiting_on}, BCC {bcc}, "

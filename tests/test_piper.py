@@ -52,19 +52,22 @@ def test_link_picks_sharepoint_not_signature():
 
 def test_match_building_folder():
     folders = [
-        {"id": "1", "displayName": "Foxridge"},
-        {"id": "2", "displayName": "Park 39"},
-        {"id": "3", "displayName": "39th Street"},
+        {"id": "1", "displayName": "Foxridge Plaza"},
+        {"id": "2", "displayName": "39th Street"},
+        {"id": "3", "displayName": "Metcalf"},
     ]
-    # Building named in the body ("New Tenant at Foxridge!")
+    # Email says just "Foxridge"; folder is "Foxridge Plaza" -> token match
     assert _match_building_folder(MISSION, folders)["id"] == "1"
-    # Multi-word building matched as a token phrase
-    park = {"subject": "NLC - Foo", "body_text": "New tenant at Park 39 building"}
-    assert _match_building_folder(park, folders)["id"] == "2"
     # No building named -> None (won't guess)
     assert _match_building_folder(SIRO, folders) is None
     # Override maps tenant -> building folder when the email doesn't state it
-    assert _match_building_folder(SIRO, folders, {"SIRO": "39th Street"})["id"] == "3"
+    assert _match_building_folder(SIRO, folders, {"SIRO": "39th Street"})["id"] == "2"
+
+
+def test_match_building_full_phrase():
+    folders = [{"id": "1", "displayName": "39th Street"}, {"id": "2", "displayName": "Metcalf"}]
+    email = {"subject": "NLC - Acme", "body_text": "New tenant at 39th Street this fall"}
+    assert _match_building_folder(email, folders)["id"] == "1"
 
 
 if __name__ == "__main__":

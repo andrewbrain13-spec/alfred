@@ -81,35 +81,53 @@ def _words(s: str) -> list[str]:
     return re.sub(r"[^a-z0-9]+", " ", (s or "").lower().replace("&", " and ")).split()
 
 
-def _match_building_folder(email: dict, folders: list[dict], overrides: dict | None = None) -> dict | None:
-    """Pick the portfolio subfolder for the BUILDING the email names.
+# Generic words in building-folder names that shouldn't drive a match on their own.
+_STOP = {"plaza", "building", "center", "centre", "office", "offices", "suite",
+         "suites", "tower", "place", "the", "llc", "properties", "property",
+         "group", "park", "square", "commons", "court"}
 
-    The building appears in the email text (e.g. 'New Tenant at Foxridge!'), and
-    the portfolio subfolders are named by building. We match a folder when its
-    name appears as a whole token-phrase in the subject/body. Conservative:
-    returns a folder only on a single confident match, else None.
+
+def _key_tokens(name: str) -> list[str]:
+    """Distinctive tokens of a folder name (drop generic/short words)."""
+    return [t for t in _words(name) if len(t) >= 4 and t not in _STOP]
+
+
+def _match_building_folder(email: dict, folders: list[dict], overrides: dict | None = None) -> dict | None:
+    """Pick the folder for the BUILDING the email names.
+
+    The building appears in the email text (e.g. 'New Tenant at Foxridge!'). A
+    folder matches if its full name is a token-phrase in the email, OR (for
+    folders like 'Foxridge Plaza' when the email just says 'Foxridge') if one of
+    its distinctive tokens appears. Conservative: returns a folder only when a
+    single one matches, else None.
     """
     overrides = overrides or {}
     tenant = _extract_tenant(email)
-    # Explicit override: tenant -> building folder name (for emails that don't
-    # state the building, e.g. some renewals).
-    for k, v in overrides.items():
+    for k, v in overrides.items():  # tenant -> building folder override
         if k.strip().lower() == tenant.strip().lower():
             for f in folders:
                 if (f.get("displayName") or "").strip().lower() == v.strip().lower():
                     return f
 
-    text = f"{email.get('subject', '')} \n {email.get('body_text', '')}"
-    joined = " " + " ".join(_words(text)) + " "
-    matches = []
+    words = _words(f"{email.get('subject', '')} \n {email.get('body_text', '')}")
+    text_words = set(words)
+    joined = " " + " ".join(words) + " "
+
+    phrase_hits, token_hits = [], []
     for f in folders:
-        name_words = _words(f.get("displayName", ""))
-        if not name_words:
+        fwords = _words(f.get("displayName", ""))
+        if not fwords:
             continue
-        phrase = " " + " ".join(name_words) + " "
-        if phrase in joined:
-            matches.append(f)
-    return matches[0] if len(matches) == 1 else None
+        if " " + " ".join(fwords) + " " in joined:
+            phrase_hits.append(f)
+        elif any(t in text_words for t in _key_tokens(f.get("displayName", ""))):
+            token_hits.append(f)
+
+    if len(phrase_hits) == 1:
+        return phrase_hits[0]
+    if not phrase_hits and len(token_hits) == 1:
+        return token_hits[0]
+    return None
 
 
 def _load_overrides() -> dict:
@@ -134,11 +152,20 @@ def _file_and_move(g, email: dict, portfolio_name: str) -> None:
     if not portfolio:
         print(f"NOTE: no '{portfolio_name}' subfolder under Inbox; marked read, left in inbox.")
         return
+    overrides = _load_overrides()
     folders = g.child_folders(portfolio["id"])
-    dest = _match_building_folder(email, folders, _load_overrides())
+    dest = _match_building_folder(email, folders, overrides)
+    location = portfolio_name
+    if not dest:
+        # Fallback: some buildings (e.g. "Park 39") are filed directly under
+        # Inbox rather than under portfolio.
+        inbox_children = [f for f in g.child_folders("inbox") if f.get("id") != portfolio.get("id")]
+        dest = _match_building_folder(email, inbox_children, overrides)
+        location = "inbox"
     if dest:
         g.move_message(msg_id, dest["id"])
-        print(f"MOVED to Inbox/{portfolio_name}/{dest['displayName']} and marked read.")
+        where = dest["displayName"] if location == "inbox" else f"{portfolio_name}/{dest['displayName']}"
+        print(f"MOVED to Inbox/{where} and marked read.")
     else:
         names = ", ".join(sorted(f.get("displayName", "") for f in folders))
         print(f"MARKED READ but no confident building-folder match. Add a "

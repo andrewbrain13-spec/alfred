@@ -82,14 +82,18 @@ class GraphClient:
         return resp.json().get("value", [])
 
     def get_conversation(self, conversation_id: str) -> list[dict]:
+        # Graph rejects $orderby combined with a conversationId $filter, and the
+        # id contains URL-unsafe characters — encode the value and sort locally.
+        cid = quote(conversation_id, safe="")
         resp = self.request(
             "GET",
-            f"/me/messages?$filter=conversationId eq '{conversation_id}'"
-            "&$orderby=receivedDateTime asc"
+            f"/me/messages?$filter=conversationId eq '{cid}'&$top=50"
             "&$select=id,subject,from,toRecipients,ccRecipients,receivedDateTime,"
             "bodyPreview,isDraft",
         )
-        return resp.json().get("value", [])
+        msgs = resp.json().get("value", [])
+        msgs.sort(key=lambda m: m.get("receivedDateTime", ""))
+        return msgs
 
     def create_reply_draft(self, message_id: str) -> dict:
         """Create a draft reply in the Drafts folder (does not send)."""
