@@ -97,17 +97,17 @@ class GraphClient:
 
     def create_reply_draft(self, message_id: str) -> dict:
         """Create a draft reply in the Drafts folder (does not send)."""
-        return self.request("POST", f"/me/messages/{message_id}/createReply").json()
+        return self.request("POST", f"/me/messages/{quote(message_id, safe='')}/createReply").json()
 
     def update_message(self, message_id: str, patch: dict[str, Any]) -> dict:
-        return self.request("PATCH", f"/me/messages/{message_id}", json=patch).json()
+        return self.request("PATCH", f"/me/messages/{quote(message_id, safe='')}", json=patch).json()
 
     def mark_read(self, message_id: str) -> dict:
         return self.update_message(message_id, {"isRead": True})
 
     def move_message(self, message_id: str, destination_id: str) -> dict:
         return self.request(
-            "POST", f"/me/messages/{message_id}/move",
+            "POST", f"/me/messages/{quote(message_id, safe='')}/move",
             json={"destinationId": destination_id},
         ).json()
 

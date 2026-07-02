@@ -147,28 +147,34 @@ def _file_and_move(g, email: dict, portfolio_name: str) -> None:
     if not msg_id:
         print("NOTE: no message id available; skipped read/move.")
         return
-    g.mark_read(msg_id)
+
+    try:
+        g.mark_read(msg_id)
+        print("Marked read.")
+    except Exception as exc:
+        print(f"WARN: mark-read failed: {exc}")
+
     portfolio = g.find_child_folder("inbox", portfolio_name)
     if not portfolio:
-        print(f"NOTE: no '{portfolio_name}' subfolder under Inbox; marked read, left in inbox.")
+        print(f"NOTE: no '{portfolio_name}' subfolder under Inbox; left in inbox.")
         return
     overrides = _load_overrides()
     folders = g.child_folders(portfolio["id"])
     dest = _match_building_folder(email, folders, overrides)
-    location = portfolio_name
     if not dest:
         # Fallback: some buildings (e.g. "Park 39") are filed directly under
         # Inbox rather than under portfolio.
         inbox_children = [f for f in g.child_folders("inbox") if f.get("id") != portfolio.get("id")]
         dest = _match_building_folder(email, inbox_children, overrides)
-        location = "inbox"
     if dest:
-        g.move_message(msg_id, dest["id"])
-        where = dest["displayName"] if location == "inbox" else f"{portfolio_name}/{dest['displayName']}"
-        print(f"MOVED to Inbox/{where} and marked read.")
+        try:
+            g.move_message(msg_id, dest["id"])
+            print(f"MOVED to folder '{dest['displayName']}'.")
+        except Exception as exc:
+            print(f"WARN: move failed: {exc}")
     else:
         names = ", ".join(sorted(f.get("displayName", "") for f in folders))
-        print(f"MARKED READ but no confident building-folder match. Add a "
+        print(f"No confident building-folder match; left in inbox. Add a "
               f"tenant->building override in folder_map.json. "
               f"Folders under {portfolio_name}: {names}")
 
