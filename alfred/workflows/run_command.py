@@ -18,9 +18,12 @@ read them without templating.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import subprocess
+import sys
+import tempfile
 
 from ..models import Message
 from .base import Workflow
@@ -37,14 +40,26 @@ class RunCommand(Workflow):
         shell = bool(self.spec.get("shell", False))
         if isinstance(command, list):
             command = [self.render(str(part), message) for part in command]
+            # Use the SAME Python that runs Alfred (the venv), not whatever bare
+            # "python" resolves to on PATH — that one lacks Alfred's dependencies.
+            if command and command[0] in ("python", "python3"):
+                command[0] = sys.executable
         else:
             command = self.render(str(command), message)
+
+        # Hand the full message to the subprocess as JSON, so automations get
+        # the sender/subject/body without parsing anything themselves.
+        workdir = tempfile.mkdtemp(prefix="alfred-cmd-")
+        context_path = os.path.join(workdir, "message.json")
+        with open(context_path, "w", encoding="utf-8") as fh:
+            json.dump(message.to_context_dict(), fh)
 
         env = dict(os.environ)
         env.update({str(k): str(v) for k, v in self.spec.get("env", {}).items()})
         env["ALFRED_SUBJECT"] = message.subject
         env["ALFRED_FROM"] = message.from_addr
         env["ALFRED_UID"] = message.uid
+        env["ALFRED_MESSAGE_JSON"] = context_path
 
         stdin = message.body_text if self.spec.get("pass_body_stdin") else None
 

@@ -43,6 +43,22 @@ class Message:
     def has_attachments(self) -> bool:
         return bool(self.attachments)
 
+    def to_context_dict(self) -> dict:
+        """Full message payload handed to subprocess automations as JSON."""
+        return {
+            "uid": self.uid,
+            "subject": self.subject,
+            "from": self.from_addr,
+            "to": self.to_addrs,
+            "date": self.date.isoformat() if self.date else None,
+            "body_text": self.body_text,
+            "body_html": self.body_html,
+            "attachments": [
+                {"filename": a.filename, "content_type": a.content_type, "size": a.size}
+                for a in self.attachments
+            ],
+        }
+
     def placeholders(self) -> dict[str, str]:
         """Values available for ``{subject}``-style substitution in workflows."""
         return {
