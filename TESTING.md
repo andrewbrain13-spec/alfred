@@ -3,6 +3,25 @@
 Everything below runs in **dry-run** — nothing gets approved, sent, or written
 until you explicitly flip a flag. Work top to bottom.
 
+## Prerequisite: the AI "brain" (Claude Code)
+
+Automations **#1 (Prism)** and **#3 (FollowUpThen judgment)** invoke Claude Code
+locally. Automation **#2 (Piper)** needs none of this — it's pure Graph.
+
+Install Claude Code (PowerShell):
+```powershell
+irm https://claude.ai/install.ps1 | iex
+```
+Also install Git for Windows (https://git-scm.com/downloads/win) so Claude Code's
+Bash tool works — the Prism automation uses it to fetch the MFA code.
+
+Authenticate with your **Claude Pro/Max subscription** (no API key needed):
+```powershell
+claude --version
+claude          # opens a browser to log in; the login is then cached
+```
+Leaving yourself logged in is what lets the unattended automations run.
+
 ## 0. One-time setup
 
 ```bat
