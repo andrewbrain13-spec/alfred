@@ -57,7 +57,8 @@ def main() -> int:
         print(f"Baselined {n} existing message(s) as already-seen. "
               f"Alfred will now only react to mail that arrives from here on.")
     elif args.once:
-        engine.run_once()
+        n = engine.run_once()
+        print(f"Checked inbox: handled {n} new message(s). See {config.log_file} for details.")
     else:
         engine.run_forever()
     return 0

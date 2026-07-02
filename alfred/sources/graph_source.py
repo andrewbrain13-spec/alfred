@@ -23,11 +23,14 @@ from __future__ import annotations
 import os
 from typing import Any, Iterable
 
+import logging
+
 import requests
 
 from ..models import Attachment, Message
 
 _GRAPH = "https://graph.microsoft.com/v1.0"
+log = logging.getLogger("alfred.graph_source")
 
 
 class GraphSource:
@@ -91,25 +94,25 @@ class GraphSource:
 
     # -- fetching -----------------------------------------------------------
     def fetch_new(self) -> Iterable[Message]:
-        url = self._delta_link or (
-            f"{_GRAPH}/me/mailFolders/{self.folder}/messages/delta"
-            "?$select=subject,from,toRecipients,receivedDateTime,body,hasAttachments"
+        """Fetch the most recent messages in the folder; the engine dedups by id.
+
+        Simple and robust: each poll grabs the newest `window` messages sorted
+        by arrival time. New mail always lands at the top, so it is picked up on
+        the next poll. Attachments are only downloaded when `fetch_attachments`
+        is enabled (none of the default automations need attachment bytes).
+        """
+        top = int(self.config.get("window", 25))
+        resp = requests.get(
+            f"{_GRAPH}/me/mailFolders/{self.folder}/messages"
+            f"?$top={top}&$orderby=receivedDateTime%20desc"
+            "&$select=id,subject,from,toRecipients,receivedDateTime,body,hasAttachments",
+            headers=self._headers(),
+            timeout=30,
         )
-        messages: list[Message] = []
-        while url:
-            resp = requests.get(url, headers=self._headers(), timeout=30)
-            resp.raise_for_status()
-            data = resp.json()
-            for item in data.get("value", []):
-                if item.get("@removed"):
-                    continue
-                messages.append(self._parse(item))
-            if "@odata.nextLink" in data:
-                url = data["@odata.nextLink"]
-            else:
-                self._delta_link = data.get("@odata.deltaLink")
-                url = None
-        return messages
+        resp.raise_for_status()
+        items = resp.json().get("value", [])
+        log.info("Graph: fetched %d recent message(s) from '%s'", len(items), self.folder)
+        return [self._parse(item) for item in items]
 
     def _parse(self, item: dict[str, Any]) -> Message:
         from_addr = (
@@ -124,7 +127,7 @@ class GraphSource:
         body_text = body.get("content", "") if body.get("contentType") != "html" else ""
 
         attachments: list[Attachment] = []
-        if item.get("hasAttachments"):
+        if item.get("hasAttachments") and self.config.get("fetch_attachments"):
             attachments = self._fetch_attachments(item["id"])
 
         from datetime import datetime
