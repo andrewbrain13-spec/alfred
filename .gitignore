@@ -5,6 +5,7 @@ config/rules.yaml
 *.log
 alfred_state.json
 graph_token_cache.json
+piper_handled_threads.json
 
 # Python
 __pycache__/

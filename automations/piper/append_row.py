@@ -99,6 +99,38 @@ def _graph_id(email: dict) -> str:
     return uid.split(":", 1)[1] if ":" in uid else ""
 
 
+def _handled_path() -> str:
+    return os.environ.get("PIPER_HANDLED_FILE", "piper_handled_threads.json")
+
+
+def _is_handled(conversation_id: str) -> bool:
+    """True if this thread was already logged/filed (so we ignore later replies)."""
+    if not conversation_id:
+        return False
+    p = _handled_path()
+    if not os.path.exists(p):
+        return False
+    try:
+        return conversation_id in set(json.load(open(p, encoding="utf-8")))
+    except Exception:
+        return False
+
+
+def _mark_handled(conversation_id: str) -> None:
+    if not conversation_id:
+        return
+    p = _handled_path()
+    seen = []
+    if os.path.exists(p):
+        try:
+            seen = json.load(open(p, encoding="utf-8"))
+        except Exception:
+            seen = []
+    if conversation_id not in seen:
+        seen.append(conversation_id)
+        json.dump(seen[-2000:], open(p, "w", encoding="utf-8"))
+
+
 def _words(s: str) -> list[str]:
     return re.sub(r"[^a-z0-9]+", " ", (s or "").lower().replace("&", " and ")).split()
 
@@ -196,9 +228,11 @@ def _file_and_move(g, email: dict, portfolio_name: str) -> None:
             print(f"WARN: move failed: {exc}")
     else:
         names = ", ".join(sorted(f.get("displayName", "") for f in folders))
+        snippet = re.sub(r"\s+", " ", _email_text(email)).strip()[:300]
         print(f"No confident building-folder match; left in inbox. Add a "
               f"tenant->building override in folder_map.json. "
               f"Folders under {portfolio_name}: {names}")
+        print(f"  (searched text starts: {snippet!r})")
 
 
 def _extract_tenant(email: dict) -> str:
@@ -222,6 +256,14 @@ def main() -> int:
     portfolio_name = os.environ.get("PIPER_PORTFOLIO_FOLDER", "portfolio")
 
     email = _load_email()
+
+    # Only act on the FIRST email of a thread; ignore later replies (e.g.
+    # inter-office dialogue) in the same conversation.
+    conversation_id = email.get("conversation_id", "")
+    if not dry_run and _is_handled(conversation_id):
+        print("SKIPPED: this thread was already logged/filed; ignoring reply.")
+        return 0
+
     link = _extract_link(email)
     if not link:
         print("SKIPPED: no share link found in the email; refine _LINK_RE.")
@@ -246,6 +288,9 @@ def main() -> int:
     except Exception as exc:
         # Filing is best-effort; never fail the whole run over it.
         print(f"WARN: mark-read/move step failed: {exc}")
+
+    # Record the thread so later replies in it are ignored.
+    _mark_handled(conversation_id)
     return 0
 
 

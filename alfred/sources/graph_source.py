@@ -105,7 +105,7 @@ class GraphSource:
         resp = requests.get(
             f"{_GRAPH}/me/mailFolders/{self.folder}/messages"
             f"?$top={top}&$orderby=receivedDateTime%20desc"
-            "&$select=id,subject,from,toRecipients,receivedDateTime,body,hasAttachments",
+            "&$select=id,subject,from,toRecipients,receivedDateTime,body,hasAttachments,conversationId",
             headers=self._headers(),
             timeout=30,
         )
@@ -149,6 +149,7 @@ class GraphSource:
             body_text=body_text,
             body_html=body_html,
             attachments=attachments,
+            conversation_id=item.get("conversationId", ""),
         )
 
     def _fetch_attachments(self, message_id: str) -> list[Attachment]:

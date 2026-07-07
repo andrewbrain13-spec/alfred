@@ -38,6 +38,7 @@ class Message:
     body_text: str
     body_html: str = ""
     attachments: list[Attachment] = field(default_factory=list)
+    conversation_id: str = ""
 
     @property
     def has_attachments(self) -> bool:
@@ -53,6 +54,7 @@ class Message:
             "date": self.date.isoformat() if self.date else None,
             "body_text": self.body_text,
             "body_html": self.body_html,
+            "conversation_id": self.conversation_id,
             "attachments": [
                 {"filename": a.filename, "content_type": a.content_type, "size": a.size}
                 for a in self.attachments

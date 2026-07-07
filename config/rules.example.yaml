@@ -62,6 +62,7 @@ rules:
   # TODO: add the real Piper sender to `from` once you share a sample email.
   - name: "Piper checklist -> tracker (dry-run)"
     match:
+      from: "(?i)leasing@braingroup"
       subject: "(?i)new lease checklist|renewal lease checklist|\\bNLC\\b|\\bRLC\\b"
     stop_on_match: true
     workflows:
