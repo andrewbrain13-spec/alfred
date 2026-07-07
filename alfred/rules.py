@@ -48,6 +48,12 @@ def matches(match_block: dict[str, Any], message: Message) -> bool:
         elif key == "has_attachment":
             if bool(expected) != message.has_attachments:
                 return False
+        elif key == "not":
+            # Exclusion: fail if the message matches the nested conditions
+            # (e.g. exclude "mentioned you" notifications). Uses the same
+            # AND semantics, so use regex alternation for multiple patterns.
+            if matches(expected, message):
+                return False
         else:
             raise ValueError(f"Unknown match condition: {key!r}")
 

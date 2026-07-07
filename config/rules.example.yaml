@@ -64,6 +64,8 @@ rules:
     match:
       from: "(?i)leasing@braingroup"
       subject: "(?i)new lease checklist|renewal lease checklist|\\bNLC\\b|\\bRLC\\b"
+      not:
+        subject: "(?i)mentioned you|commented"   # skip @mention notifications
     stop_on_match: true
     workflows:
       - type: run_command

@@ -40,6 +40,13 @@ def test_empty_match_never_fires():
     assert not rules.matches({}, _msg())
 
 
+def test_not_exclusion():
+    block = {"subject": "invoice", "not": {"subject": "(?i)mentioned you"}}
+    assert rules.matches(block, _msg(subject="Weekly Invoice #42"))
+    # Excluded when the 'not' condition matches
+    assert not rules.matches(block, _msg(subject="Dawn mentioned you on Invoice"))
+
+
 def test_has_attachment_condition():
     from alfred.models import Attachment
 
