@@ -22,6 +22,7 @@ real Piper email. Runs in dry-run by default so you can confirm the parse.
 
 from __future__ import annotations
 
+import html
 import json
 import os
 import re
@@ -31,6 +32,27 @@ from datetime import date
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from alfred.graph import GraphClient
+
+
+def _html_to_text(h: str) -> str:
+    """Crudely convert an HTML body to plain text for matching."""
+    if not h:
+        return ""
+    h = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", h)
+    h = re.sub(r"(?s)<[^>]+>", " ", h)
+    return html.unescape(h)
+
+
+def _email_text(email: dict) -> str:
+    """All searchable text of the email: subject + plain body + HTML body.
+
+    Real Outlook mail is usually HTML (body_text empty), so the building name
+    lives in body_html — include it here.
+    """
+    return (
+        f"{email.get('subject', '')} \n {email.get('body_text', '')} \n "
+        f"{_html_to_text(email.get('body_html', ''))}"
+    )
 
 # A SharePoint/OneDrive share link, as emailed to a distribution list.
 _SHARE_RE = r"https?://[^\s\"'<>]*sharepoint[^\s\"'<>]*"
@@ -64,7 +86,7 @@ def _extract_link(email: dict) -> str:
 
 
 def _extract_type(email: dict) -> str:
-    text = f"{email.get('subject','')} {email.get('body_text','')}".lower()
+    text = _email_text(email).lower()
     if "renewal" in text or "rlc" in text:
         return "R"
     if "new lease" in text or "nlc" in text:
@@ -109,7 +131,7 @@ def _match_building_folder(email: dict, folders: list[dict], overrides: dict | N
                 if (f.get("displayName") or "").strip().lower() == v.strip().lower():
                     return f
 
-    words = _words(f"{email.get('subject', '')} \n {email.get('body_text', '')}")
+    words = _words(_email_text(email))
     text_words = set(words)
     joined = " " + " ".join(words) + " "
 

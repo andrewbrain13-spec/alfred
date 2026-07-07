@@ -70,6 +70,17 @@ def test_match_building_full_phrase():
     assert _match_building_folder(email, folders)["id"] == "1"
 
 
+def test_match_building_from_html_body():
+    # Real Outlook mail: body_text empty, building name only in the HTML body.
+    folders = [{"id": "1", "displayName": "Metcalf Plaza"}, {"id": "2", "displayName": "Foxridge Plaza"}]
+    email = {
+        "subject": "NLC - NeoWellnez",
+        "body_text": "",
+        "body_html": "<html><body><p>New tenant at <b>Metcalf&nbsp;Plaza</b>!</p></body></html>",
+    }
+    assert _match_building_folder(email, folders)["id"] == "1"
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:
