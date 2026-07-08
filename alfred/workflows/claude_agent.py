@@ -88,6 +88,10 @@ class ClaudeAgent(Workflow):
 
         workdir = tempfile.mkdtemp(prefix="alfred-agent-")
         context_path = self._message_context_file(message, workdir)
+        # Run Claude in Alfred's working dir (the repo) so the task's relative
+        # paths (scripts, configs) resolve; keep the message JSON as an absolute
+        # path since it lives in the temp dir.
+        run_cwd = self.spec.get("cwd") or os.getcwd()
 
         prompt = self.render(str(task), message)
         prompt += (
@@ -99,13 +103,16 @@ class ClaudeAgent(Workflow):
 
         cmd = [claude_bin, "-p", prompt, "--output-format", "text"]
         if self.spec.get("mcp_config"):
-            cmd += ["--mcp-config", self.spec["mcp_config"]]
+            # Absolute so it resolves regardless of the subprocess cwd.
+            cmd += ["--mcp-config", os.path.abspath(self.spec["mcp_config"])]
         allowed = self.spec.get("allowed_tools")
         if allowed:
             cmd += ["--allowedTools", ",".join(allowed)]
         if self.spec.get("permission_mode"):
             cmd += ["--permission-mode", self.spec["permission_mode"]]
-        if self.spec.get("dangerously_skip_permissions") and not dry_run:
+        if self.spec.get("dangerously_skip_permissions"):
+            # Non-interactive: tools can't prompt. Dry-run safety comes from the
+            # prompt notice (do not take irreversible actions), not permissions.
             cmd += ["--dangerously-skip-permissions"]
         if self.spec.get("append_system_prompt"):
             cmd += ["--append-system-prompt", self.spec["append_system_prompt"]]
@@ -124,7 +131,7 @@ class ClaudeAgent(Workflow):
         )
         result = subprocess.run(
             cmd,
-            cwd=self.spec.get("cwd", workdir),
+            cwd=run_cwd,
             env=env,
             capture_output=True,
             text=True,
