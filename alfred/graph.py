@@ -113,6 +113,10 @@ class GraphClient:
             json={"destinationId": destination_id},
         ).json()
 
+    def delete_message(self, message_id: str) -> None:
+        """Move the message to Deleted Items (recoverable)."""
+        self.request("DELETE", f"/me/messages/{quote(message_id, safe='')}")
+
     # -- folders ------------------------------------------------------------
     def child_folders(self, parent_id: str) -> list[dict]:
         """All child folders of a folder (well-known name like 'inbox' or an id)."""

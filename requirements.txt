@@ -11,3 +11,7 @@ msal>=1.28
 
 # Prism MFA: generate one-time passcodes on demand (automation #1, browser path).
 pyotp>=2.9
+
+# Prism login script (automations/prism/login.py). After installing, run:
+#   python -m playwright install chromium
+playwright>=1.44

@@ -56,6 +56,7 @@ rules:
         dry_run: true                         # "false" to actually approve
         timeout: 600
         output_to: prism_approvals.log
+        delete_message_on: "RESULT:\\s*APPROVED"   # delete the email only if approved
 
   # --- Automation #2: Piper NLC/RLC checklist -> OneDrive tracker (dry-run) --
   # See automations/piper/README.md. Appends a row to Table1 in

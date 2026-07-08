@@ -39,6 +39,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import subprocess
 import tempfile
 
@@ -148,3 +149,17 @@ class ClaudeAgent(Workflow):
                 f"Claude Code exited {result.returncode}: {result.stderr.strip()[:500]}"
             )
         log.info("Claude agent done (%s): %s", message.uid, transcript[:300])
+
+        # Optionally act on a success marker in the agent's report (e.g. delete
+        # the triggering email only if the request was actually approved).
+        marker = self.spec.get("delete_message_on")
+        if marker and not dry_run and re.search(marker, transcript):
+            try:
+                from ..graph import GraphClient
+
+                gid = message.uid.split(":", 1)[1] if ":" in message.uid else ""
+                if gid:
+                    GraphClient().delete_message(gid)
+                    log.info("Deleted message %s (matched %r)", message.uid, marker)
+            except Exception as exc:
+                log.warning("Delete-on-success failed for %s: %s", message.uid, exc)

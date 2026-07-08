@@ -1,9 +1,9 @@
 {
-  "//": "Playwright MCP with a VISIBLE browser window. Use this for manual login / first-time session setup / debugging so you can watch the flow. Shares the SAME default persistent profile as playwright.json, so a session you log into here is reused by the headless automation.",
+  "//": "Playwright MCP with a VISIBLE browser window, loading the saved session from prism_state.json. Use for debugging the approval flow so you can watch it. Same session as the headless config.",
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"]
+      "args": ["-y", "@playwright/mcp@latest", "--isolated", "--storage-state", "C:\\Alfred\\prism_state.json"]
     }
   }
 }

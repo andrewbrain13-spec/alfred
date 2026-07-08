@@ -6,6 +6,9 @@ config/rules.yaml
 alfred_state.json
 graph_token_cache.json
 piper_handled_threads.json
+prism_state.json
+prism_keepalive.log
+.prism-profile/
 
 # Python
 __pycache__/
