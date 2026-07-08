@@ -36,30 +36,29 @@ from playwright.sync_api import sync_playwright
 STATE_FILE = os.environ.get("PRISM_STATE_FILE", "prism_state.json")
 
 
-def _fill_first(page, selectors, value, what):
-    """Fill the first selector that exists. Raises if none are found."""
-    for sel in selectors:
-        loc = page.locator(sel)
+def _fill_first(page, selectors, value, what, timeout=20000):
+    """Fill the first selector that becomes available (auto-waits per selector)."""
+    last = None
+    for i, sel in enumerate(selectors):
         try:
-            if loc.count() > 0:
-                loc.first.fill(value)
-                return
-        except Exception:
-            continue
-    raise RuntimeError(f"Could not find the {what} field (tried: {selectors})")
+            # Give the first (most-likely) selector the full wait; probe the rest.
+            page.locator(sel).first.fill(value, timeout=timeout if i == 0 else 3000)
+            return
+        except Exception as exc:
+            last = exc
+    raise RuntimeError(f"Could not find the {what} field (tried {selectors}): {last}")
 
 
-def _click_first(page, selectors, what, required=True):
-    for sel in selectors:
-        loc = page.locator(sel)
+def _click_first(page, selectors, what, required=True, timeout=20000):
+    last = None
+    for i, sel in enumerate(selectors):
         try:
-            if loc.count() > 0:
-                loc.first.click()
-                return True
-        except Exception:
-            continue
+            page.locator(sel).first.click(timeout=timeout if i == 0 else 3000)
+            return True
+        except Exception as exc:
+            last = exc
     if required:
-        raise RuntimeError(f"Could not find the {what} control (tried: {selectors})")
+        raise RuntimeError(f"Could not find the {what} control (tried {selectors}): {last}")
     return False
 
 
@@ -76,12 +75,16 @@ def main() -> int:
         page = context.new_page()
         page.set_default_timeout(45000)
 
-        page.goto(url)
-        # Start the PrismONE ID (Azure B2C) login.
+        page.goto(url, wait_until="domcontentloaded")
+        # The login page is a single-page app — give it a moment to render, then
+        # click the PrismONE ID button (auto-waits up to the timeout).
         _click_first(page, [
-            "text=Sign In with PrismONE ID",
             "button:has-text('PrismONE')",
-        ], "PrismONE ID button")
+            "text=/Sign In with PrismONE ID/i",
+            "text=/PrismONE ID/i",
+            "a:has-text('PrismONE')",
+            "[class*='prism' i]:has-text('Sign In')",
+        ], "PrismONE ID button", timeout=45000)
 
         # Email.
         page.wait_for_load_state("networkidle")
