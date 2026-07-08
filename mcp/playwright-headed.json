@@ -1,0 +1,9 @@
+{
+  "//": "Playwright MCP with a VISIBLE browser window. Use this for manual login / first-time session setup / debugging so you can watch the flow. Shares the SAME default persistent profile as playwright.json, so a session you log into here is reused by the headless automation.",
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    }
+  }
+}

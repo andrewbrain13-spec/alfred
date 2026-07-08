@@ -1,9 +1,9 @@
 {
-  "//": "MCP config passed to Claude Code (--mcp-config) so the agent can drive a browser. Requires Node.js on the work PC. On first use it fetches the Playwright MCP server via npx.",
+  "//": "Playwright MCP for Alfred's Prism automation. HEADLESS: no visible window, so it runs unattended even when your screen is locked. Uses the default persistent profile, so the Prism login session established via playwright-headed.json carries over. For manual login / first-time session setup / debugging (where you need to SEE the browser), use mcp/playwright-headed.json instead. Requires Node.js.",
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"]
+      "args": ["-y", "@playwright/mcp@latest", "--headless"]
     }
   }
 }
