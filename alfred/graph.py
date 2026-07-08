@@ -71,10 +71,12 @@ class GraphClient:
 
     # -- mail ---------------------------------------------------------------
     def search_messages(self, query: str, top: int = 25) -> list[dict]:
-        # $search needs the ConsistencyLevel header.
+        # $search needs the ConsistencyLevel header. URL-encode the quoted
+        # phrase so subjects with & / - / : don't break the URL or the query.
+        q = quote(f'"{query}"', safe="")
         resp = self.request(
             "GET",
-            f"/me/messages?$search=\"{query}\"&$top={top}"
+            f"/me/messages?$search={q}&$top={top}"
             "&$select=id,subject,from,toRecipients,ccRecipients,receivedDateTime,"
             "conversationId,bodyPreview,isDraft",
             headers={"ConsistencyLevel": "eventual"},

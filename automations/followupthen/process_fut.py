@@ -127,8 +127,14 @@ def main() -> int:
 
     # 1. Find the original thread by subject (excluding FollowUpThen's own mail
     #    and our own drafts). Prefer a thread the follow-up target is part of.
+    #    Strip punctuation so the keyword search stays valid (KQL treats '-'/':'
+    #    specially and '&' would break the URL).
+    search_terms = re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9 ]+", " ", subject)).strip()
+    if not search_terms:
+        print(f"SKIPPED: subject {subject!r} has no searchable terms.")
+        return 0
     candidates = [
-        m for m in g.search_messages(f"subject:{subject}", top=25)
+        m for m in g.search_messages(search_terms, top=25)
         if not m.get("isDraft") and not is_fut(m.get("from", {}).get("emailAddress", {}).get("address", ""))
     ]
     if not candidates:
