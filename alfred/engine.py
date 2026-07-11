@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import logging
+import os
 import signal
+import subprocess
+import sys
 import time
 
 from .config import Config
@@ -21,6 +24,33 @@ class Engine:
         self.dispatcher = Dispatcher(config.rules)
         self.state = State(config.state_file)
         self._running = False
+        self._task_last: dict[str, float] = {}
+
+    def _run_tasks(self) -> None:
+        """Run periodic (non-email) tasks whose interval has elapsed."""
+        now = time.time()
+        for task in self.config.tasks:
+            if now - self._task_last.get(task.name, 0.0) < task.every_seconds:
+                continue
+            self._task_last[task.name] = now
+            cmd = list(task.command)
+            if cmd and cmd[0] in ("python", "python3"):
+                cmd[0] = sys.executable  # use the venv interpreter
+            env = dict(os.environ)
+            env.update(task.env)
+            try:
+                result = subprocess.run(
+                    cmd, cwd=os.getcwd(), env=env,
+                    capture_output=True, text=True, timeout=300,
+                )
+                out = result.stdout.strip()
+                if result.returncode != 0:
+                    log.error("Task %r failed (%d): %s", task.name,
+                              result.returncode, result.stderr.strip()[:500])
+                elif out:
+                    log.info("Task %r:\n%s", task.name, out)
+            except Exception as exc:
+                log.exception("Task %r errored: %s", task.name, exc)
 
     def _process_once(self) -> int:
         handled = 0
@@ -61,6 +91,10 @@ class Engine:
                     log.info("Processed %d new message(s).", n)
             except Exception as exc:  # a bad poll should not kill the daemon
                 log.exception("Poll cycle failed: %s", exc)
+            try:
+                self._run_tasks()
+            except Exception as exc:
+                log.exception("Periodic tasks failed: %s", exc)
             # Sleep in short slices so signals are handled promptly.
             for _ in range(self.config.poll_seconds):
                 if not self._running:

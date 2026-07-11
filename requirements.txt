@@ -15,3 +15,8 @@ pyotp>=2.9
 # Prism login script (automations/prism/login.py). After installing, run:
 #   python -m playwright install chromium
 playwright>=1.44
+
+# Geodude daily email (automations/geodude/send_daily.py): read the Word doc
+# and convert it to the email body.
+python-docx>=1.1
+mammoth>=1.7

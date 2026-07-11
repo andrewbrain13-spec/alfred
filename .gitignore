@@ -9,6 +9,7 @@ piper_handled_threads.json
 prism_state.json
 prism_keepalive.log
 .prism-profile/
+geodude_state.json
 
 # Python
 __pycache__/

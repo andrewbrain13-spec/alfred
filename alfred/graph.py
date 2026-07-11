@@ -24,7 +24,7 @@ GRAPH = "https://graph.microsoft.com/v1.0"
 # One consented scope set for every automation. Mail.ReadWrite covers reading
 # threads and creating/updating drafts (but not sending); Files.ReadWrite covers
 # the OneDrive tracking workbook.
-DELEGATED_SCOPES = ["Mail.ReadWrite", "Files.ReadWrite", "offline_access"]
+DELEGATED_SCOPES = ["Mail.ReadWrite", "Mail.Send", "Files.ReadWrite", "offline_access"]
 
 
 class GraphClient:
@@ -116,6 +116,35 @@ class GraphClient:
     def delete_message(self, message_id: str) -> None:
         """Move the message to Deleted Items (recoverable)."""
         self.request("DELETE", f"/me/messages/{quote(message_id, safe='')}")
+
+    def send_mail(self, subject: str, body_html: str, to: list[str],
+                  cc: list[str] | None = None,
+                  attachments: list[tuple[str, bytes]] | None = None) -> None:
+        """Send an HTML email. Requires the Mail.Send scope.
+
+        attachments: list of (filename, bytes). Kept inline; suitable for small
+        totals (< ~3 MB). Saves a copy to Sent Items.
+        """
+        import base64
+
+        message: dict[str, Any] = {
+            "subject": subject,
+            "body": {"contentType": "HTML", "content": body_html},
+            "toRecipients": [{"emailAddress": {"address": a}} for a in to],
+        }
+        if cc:
+            message["ccRecipients"] = [{"emailAddress": {"address": a}} for a in cc]
+        if attachments:
+            message["attachments"] = [
+                {
+                    "@odata.type": "#microsoft.graph.fileAttachment",
+                    "name": name,
+                    "contentBytes": base64.b64encode(data).decode("ascii"),
+                }
+                for name, data in attachments
+            ]
+        self.request("POST", "/me/sendMail",
+                     json={"message": message, "saveToSentItems": True})
 
     # -- folders ------------------------------------------------------------
     def child_folders(self, parent_id: str) -> list[dict]:

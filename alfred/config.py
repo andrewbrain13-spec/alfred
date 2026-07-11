@@ -53,12 +53,22 @@ class RuleConfig:
 
 
 @dataclass
+class TaskConfig:
+    """A periodic command run inside the engine (e.g. a folder watcher)."""
+    name: str
+    command: list[str]
+    every_seconds: int = 300
+    env: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
 class Config:
     source: dict[str, Any]
     rules: list[RuleConfig]
     poll_seconds: int = 60
     state_file: str = "alfred_state.json"
     log_file: str = field(default="alfred.log")
+    tasks: list[TaskConfig] = field(default_factory=list)
 
     @classmethod
     def load(cls, path: str) -> "Config":
@@ -84,10 +94,27 @@ class Config:
                 )
             )
 
+        tasks = []
+        for i, t in enumerate(raw.get("tasks", [])):
+            if "name" not in t or "command" not in t:
+                raise ConfigError(f"Task #{i} needs a 'name' and 'command'")
+            cmd = t["command"]
+            if not isinstance(cmd, list):
+                raise ConfigError(f"Task {t['name']!r} command must be a list")
+            tasks.append(
+                TaskConfig(
+                    name=t["name"],
+                    command=[str(c) for c in cmd],
+                    every_seconds=int(t.get("every_seconds", 300)),
+                    env={str(k): str(v) for k, v in t.get("env", {}).items()},
+                )
+            )
+
         return cls(
             source=raw["source"],
             rules=rules,
             poll_seconds=int(raw.get("poll_seconds", 60)),
             state_file=raw.get("state_file", "alfred_state.json"),
             log_file=raw.get("log_file", "alfred.log"),
+            tasks=tasks,
         )

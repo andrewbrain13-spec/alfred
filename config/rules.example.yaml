@@ -33,6 +33,17 @@ state_file: alfred_state.json    # remembers processed messages across restarts
 log_file: alfred.log
 
 # ---------------------------------------------------------------------------
+# Periodic tasks: non-email jobs Alfred runs on an interval (folder watchers,
+# etc.). See automations/geodude/README.md.
+# ---------------------------------------------------------------------------
+tasks:
+  - name: "Geodude daily email"
+    command: ["python", "automations/geodude/send_daily.py"]
+    every_seconds: 300           # check the folder every 5 minutes
+    env:
+      GEODUDE_DRY_RUN: "1"       # "0" to actually send
+
+# ---------------------------------------------------------------------------
 # Rules: each is a trigger (match) -> one or more workflows.
 # Conditions in `match` are ANDed. Text conditions are case-insensitive regex;
 # a plain word acts as a substring match.
