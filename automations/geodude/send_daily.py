@@ -33,15 +33,16 @@ DEFAULT_FOLDER = (
     r"C:\Users\abrai\OneDrive - Brain Group\Documents - Brain Group Shared Drive"
     r"\5. Investments\Oil Royalties\Geodude daily runs"
 )
-_DATE_RE = re.compile(r"(\d{8})\.[^.]+$")
+# Matches a date right before the extension in either 2026-07-10 or 20260710 form.
+_DATE_RE = re.compile(r"(\d{4}-?\d{2}-?\d{2})\.[^.]+$")
 _MONTHS = ["", "January", "February", "March", "April", "May", "June", "July",
            "August", "September", "October", "November", "December"]
 
 
 def extract_date_token(filename: str) -> str:
-    """The YYYYMMDD token before the extension, or '' if absent."""
+    """The date token before the extension, normalized to YYYYMMDD ('' if none)."""
     m = _DATE_RE.search(filename)
-    return m.group(1) if m else ""
+    return m.group(1).replace("-", "") if m else ""
 
 
 def group_by_date(filenames: list[str]) -> dict[str, list[str]]:

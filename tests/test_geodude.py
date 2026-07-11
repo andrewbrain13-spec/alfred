@@ -15,27 +15,31 @@ from automations.geodude.send_daily import (
 )
 
 BATCH = [
-    "Geodude_Summary_20260710.docx",
-    "Geodude_Screen_20260710.xlsx",
-    "Geodude_Model_157910_20260710.xlsx",
-    "Geodude_Model_158102_20260710.xlsx",
-    "Geodude_Model_157914_20260710.xlsx",
-    "not-a-geodude-file.txt",
-    "Geodude_Summary_20260711.docx",  # next day
+    # Real files use hyphenated dates; keep a non-hyphenated one to prove both work.
+    "Geodude_Summary_2026-07-10.docx",
+    "Geodude_Screen_2026-07-10.xlsx",
+    "Geodude_Model_157910_2026-07-10.xlsx",
+    "Geodude_Model_158102_2026-07-10.xlsx",
+    "Geodude_Model_157914_20260710.xlsx",   # non-hyphenated, same batch
+    "Geodude_Model_v7_TEMPLATE.xlsx",       # no date -> ignored
+    "geodude_model_v7.py",                   # no date -> ignored
+    "EnergyNet_Lots_Model_Run_2026-07-03.xlsx",  # not "geodude" -> ignored
+    "Geodude_Summary_2026-07-11.docx",       # next day
 ]
 
 
 def test_extract_date_token():
-    assert extract_date_token("Geodude_Model_157910_20260710.xlsx") == "20260710"
+    assert extract_date_token("Geodude_Model_157910_2026-07-10.xlsx") == "20260710"
     assert extract_date_token("Geodude_Summary_20260710.docx") == "20260710"
+    assert extract_date_token("Geodude_Model_v7_TEMPLATE.xlsx") == ""
     assert extract_date_token("random.txt") == ""
 
 
 def test_group_by_date():
     groups = group_by_date(BATCH)
     assert set(groups) == {"20260710", "20260711"}
-    assert len(groups["20260710"]) == 5           # excludes the non-geodude file
-    assert "not-a-geodude-file.txt" not in groups["20260710"]
+    assert len(groups["20260710"]) == 5           # 4 hyphenated + 1 non-hyphenated
+    assert "Geodude_Model_v7_TEMPLATE.xlsx" not in groups.get("20260710", [])
 
 
 def test_summary_name():
