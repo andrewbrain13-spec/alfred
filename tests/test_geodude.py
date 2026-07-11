@@ -43,8 +43,8 @@ def test_group_by_date():
 
 
 def test_summary_name():
-    assert _summary_name(BATCH[:5]) == "Geodude_Summary_20260710.docx"
-    assert _summary_name(["Geodude_Screen_20260710.xlsx"]) is None
+    assert _summary_name(BATCH[:5]) == "Geodude_Summary_2026-07-10.docx"
+    assert _summary_name(["Geodude_Screen_2026-07-10.xlsx"]) is None
 
 
 def test_format_subject_date():
