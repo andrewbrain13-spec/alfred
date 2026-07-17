@@ -88,6 +88,80 @@ def _judge_external_reply(transcript: str, internal_domains: list[str]) -> dict:
     return json.loads(m.group(0))
 
 
+def _html_escape(s: str) -> str:
+    return ((s or "").replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace("\n", "<br>"))
+
+
+def _insert_into_body(html: str, insert: str) -> str:
+    """Insert our content just after <body> (or at the top if there's no body tag)."""
+    m = re.search(r"<body[^>]*>", html, re.IGNORECASE)
+    if m:
+        return html[:m.end()] + insert + html[m.end():]
+    return insert + html
+
+
+def _extract_body(html: str) -> str:
+    m = re.search(r"<body[^>]*>(.*)</body>", html, re.IGNORECASE | re.DOTALL)
+    return m.group(1) if m else html
+
+
+def _inline_images(html: str, base_dir: str) -> str:
+    """Rewrite relative <img src> to data: URIs so a signature's logo renders."""
+    import base64
+    import mimetypes
+    import urllib.parse
+
+    def repl(m):
+        src = m.group(1)
+        if src.startswith(("data:", "http:", "https:", "cid:")):
+            return m.group(0)
+        path = os.path.join(base_dir, urllib.parse.unquote(src).replace("/", os.sep))
+        if os.path.exists(path):
+            mime = mimetypes.guess_type(path)[0] or "image/png"
+            data = base64.b64encode(open(path, "rb").read()).decode("ascii")
+            return m.group(0).replace(src, f"data:{mime};base64,{data}")
+        return m.group(0)
+
+    return re.sub(r'src="([^"]+)"', repl, html)
+
+
+def _load_signature_html() -> str:
+    """The user's Outlook signature as inline HTML (with images embedded).
+
+    Uses FUT_SIGNATURE_FILE if set; otherwise auto-detects from the Outlook
+    Signatures folder (FUT_SIGNATURE_NAME picks one when there are several).
+    Returns '' if none is found — a draft without a signature is still fine.
+    """
+    try:
+        chosen = os.environ.get("FUT_SIGNATURE_FILE")
+        if not (chosen and os.path.exists(chosen)):
+            chosen = None
+            appdata = os.environ.get("APPDATA")
+            sigdir = os.path.join(appdata, "Microsoft", "Signatures") if appdata else None
+            if sigdir and os.path.isdir(sigdir):
+                htms = [os.path.join(sigdir, f) for f in os.listdir(sigdir)
+                        if f.lower().endswith(".htm")]
+                name = os.environ.get("FUT_SIGNATURE_NAME")
+                if name:
+                    chosen = next((h for h in htms if name.lower() in os.path.basename(h).lower()), None)
+                if not chosen and len(htms) == 1:
+                    chosen = htms[0]
+                elif not chosen and htms:
+                    chosen = max(htms, key=os.path.getmtime)
+        if not chosen or not os.path.exists(chosen):
+            return ""
+        raw = open(chosen, "rb").read()
+        try:
+            html = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            html = raw.decode("cp1252", "replace")
+        html = _inline_images(_extract_body(html), os.path.dirname(chosen))
+        return "<br>" + html
+    except Exception:
+        return ""
+
+
 def _has_participant(message: dict, addr: str) -> bool:
     """True if `addr` is the sender or a recipient of the message."""
     if not addr:
@@ -178,13 +252,26 @@ def main() -> int:
         return 0
 
     draft = g.create_reply_draft(reply_to_id)
-    g.update_message(draft["id"], {
+    draft_id = draft["id"]
+
+    # Keep the quoted conversation that createReply produced; insert the nudge
+    # (and the signature) at the top, like a normal reply.
+    body = g.get_message(draft_id, select="body").get("body", {})
+    original = body.get("content", "")
+    ctype = (body.get("contentType") or "html").lower()
+    top = f"<p>{_html_escape(nudge)}</p>" + _load_signature_html()
+    if ctype == "html" and original:
+        new_content = _insert_into_body(original, top)
+    else:
+        new_content = top + (f"<br><br>{_html_escape(original)}" if original else "")
+
+    g.update_message(draft_id, {
         "toRecipients": [{"emailAddress": {"address": waiting_on}}],
         "bccRecipients": [{"emailAddress": {"address": bcc}}],
-        "body": {"contentType": "text", "content": nudge},
+        "body": {"contentType": "HTML", "content": new_content},
     })
-    print(f"DRAFT CREATED: to {waiting_on}, BCC {bcc}, thread {subject!r}. "
-          f"Review in Outlook Drafts and click Send.")
+    print(f"DRAFT CREATED: to {waiting_on}, BCC {bcc}, thread {subject!r} "
+          f"(quoted thread + signature preserved). Review in Outlook Drafts and Send.")
     return 0
 
 

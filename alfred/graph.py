@@ -104,6 +104,10 @@ class GraphClient:
     def update_message(self, message_id: str, patch: dict[str, Any]) -> dict:
         return self.request("PATCH", f"/me/messages/{quote(message_id, safe='')}", json=patch).json()
 
+    def get_message(self, message_id: str, select: str | None = None) -> dict:
+        q = f"?$select={select}" if select else ""
+        return self.request("GET", f"/me/messages/{quote(message_id, safe='')}{q}").json()
+
     def mark_read(self, message_id: str) -> dict:
         return self.update_message(message_id, {"isRead": True})
 
