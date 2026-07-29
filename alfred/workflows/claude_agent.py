@@ -41,6 +41,7 @@ import logging
 import os
 import re
 import subprocess
+import sys
 import tempfile
 
 from ..models import Message
@@ -140,6 +141,28 @@ class ClaudeAgent(Workflow):
         )
 
         transcript = result.stdout.strip()
+
+        # Self-heal: if the agent reports a recoverable condition (e.g.
+        # SESSION_EXPIRED), run a recovery command (e.g. refresh the login) and
+        # retry the agent once.
+        recover_on = self.spec.get("recover_on")
+        recover_cmd = self.spec.get("recover_command")
+        if (recover_on and recover_cmd and not dry_run
+                and result.returncode == 0 and re.search(recover_on, transcript)):
+            rc = list(recover_cmd)
+            if rc and rc[0] in ("python", "python3"):
+                rc[0] = sys.executable
+            log.info("Agent hit %r; running recovery then retrying once (%s)",
+                     recover_on, message.uid)
+            try:
+                subprocess.run(rc, cwd=run_cwd, env=env, capture_output=True,
+                               text=True, timeout=300)
+            except Exception as exc:
+                log.warning("Recovery command failed (%s): %s", message.uid, exc)
+            result = subprocess.run(cmd, cwd=run_cwd, env=env, capture_output=True,
+                                    text=True, timeout=timeout)
+            transcript = result.stdout.strip()
+
         if self.spec.get("output_to"):
             with open(self.spec["output_to"], "a", encoding="utf-8") as fh:
                 fh.write(f"\n===== {message.uid} (dry_run={dry_run}) =====\n{transcript}\n")
