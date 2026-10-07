@@ -134,9 +134,9 @@ def _save_state(path: str, state: dict) -> None:
 
 def main() -> int:
     folder = os.environ.get("GEODUDE_FOLDER", DEFAULT_FOLDER)
-    to = [a.strip() for a in os.environ.get("GEODUDE_TO", "browe@braingroup.com").split(",") if a.strip()]
+    to = [a.strip() for a in os.environ.get("GEODUDE_TO", "abrain@braingroup.com").split(",") if a.strip()]
     cc = [a.strip() for a in os.environ.get(
-        "GEODUDE_CC", "chad@chadsneed.com,jorscheln@braingroup.com").split(",") if a.strip()]
+        "GEODUDE_CC", "chad@chadsneed.com,browe@braingroup.com").split(",") if a.strip()]
     settle = int(os.environ.get("GEODUDE_SETTLE_SECONDS", "600"))
     state_file = os.environ.get("GEODUDE_STATE_FILE", "geodude_state.json")
     dry_run = os.environ.get("GEODUDE_DRY_RUN", "1") == "1"

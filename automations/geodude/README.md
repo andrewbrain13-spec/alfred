@@ -24,8 +24,8 @@ If the summary doc never appears for a day, nothing is sent.
 ## Config (env)
 ```
 GEODUDE_FOLDER          folder to watch (defaults to the OneDrive daily-runs path)
-GEODUDE_TO              default browe@braingroup.com
-GEODUDE_CC              default chad@chadsneed.com, jorscheln@braingroup.com
+GEODUDE_TO              default abrain@braingroup.com
+GEODUDE_CC              default chad@chadsneed.com, browe@braingroup.com
 GEODUDE_SETTLE_SECONDS  wait after the summary appears (default 600)
 GEODUDE_DRY_RUN         "1" = log only (default), "0" = actually send
 ```
