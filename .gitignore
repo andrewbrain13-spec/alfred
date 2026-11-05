@@ -19,3 +19,7 @@ venv/
 env/
 *.egg-info/
 .pytest_cache/
+
+# Local test/debug files
+.playwright-mcp/
+test_prism.json
